@@ -1,5 +1,5 @@
 _base_ = [
-    '../_base_/models/fcn_litehr18_no-aggregator.py', '../_base_/datasets/kvasir.py',
+    '../_base_/models/fcn_litehr30_s2merge_no-aggregator.py', '../_base_/datasets/kvasir.py',
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_step_40k_ml_adam.py'
 ]
 
