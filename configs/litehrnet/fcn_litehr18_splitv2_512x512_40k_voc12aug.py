@@ -1,5 +1,5 @@
 _base_ = [
-    '../_base_/models/fcn_litehr18_no-aggregator.py', '../_base_/datasets/kvasir.py',
+    '../_base_/models/fcn_litehr18_no-aggregator.py', '../_base_/datasets/pascal_voc12_aug.py',
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_cos_40k.py'
 ]
 
@@ -15,7 +15,7 @@ model = dict(
         num_convs=0,
         concat_input=False,
         dropout_ratio=-1,
-        num_classes=2,
+        num_classes=21,
         norm_cfg=norm_cfg,
         align_corners=False,
         enable_aggregator=True,
