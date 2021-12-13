@@ -1159,6 +1159,7 @@ class LiteHRNet(nn.Module):
         if self.with_aggregator:
             self.aggregator = IterativeAggregator(
                 in_channels=num_channels_last,
+                min_channels=self.extra['out_aggregator'].get('min_channels', None),
                 conv_cfg=self.conv_cfg,
                 norm_cfg=self.norm_cfg
             )

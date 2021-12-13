@@ -63,6 +63,7 @@ class BaseDecodeHead(nn.Module, metaclass=ABCMeta):
                  ignore_index=255,
                  align_corners=False,
                  enable_aggregator=False,
+                 aggregator_min_channels=None,
                  enable_out_seg=True,
                  enable_out_norm=False,
                  enable_loss_equalizer=False,
@@ -118,10 +119,13 @@ class BaseDecodeHead(nn.Module, metaclass=ABCMeta):
 
             self.aggregator = IterativeAggregator(
                 in_channels=in_channels,
+                min_channels = aggregator_min_channels,
                 conv_cfg=self.conv_cfg,
                 norm_cfg=self.norm_cfg
             )
-            self.in_channels = in_channels[0]
+
+            aggregator_min_channels = aggregator_min_channels if aggregator_min_channels is not None else 0
+            self.in_channels = max(in_channels[0], aggregator_min_channels)
 
         self.loss_equalizer = None
         if enable_loss_equalizer:
