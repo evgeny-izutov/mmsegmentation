@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from mmcv import ConfigDict
 
 from mmseg.core import add_prefix
 from mmseg.ops import resize
@@ -250,6 +251,8 @@ class EncoderDecoder(BaseSegmentor):
 
         losses = dict()
 
+        if not hasattr(self.train_cfg, 'mix_loss'):
+            self.train_cfg.mix_loss = ConfigDict(dict(enable=False))
         enable_mix_loss = self.train_cfg.get('mix_loss') and self.train_cfg.mix_loss.get('enable', False)
         self.train_cfg.mix_loss.enable = aux_img is not None and enable_mix_loss
         if self.train_cfg.mix_loss.enable:
