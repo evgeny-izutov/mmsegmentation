@@ -64,6 +64,7 @@ class BaseDecodeHead(nn.Module, metaclass=ABCMeta):
                  align_corners=False,
                  enable_aggregator=False,
                  aggregator_min_channels=None,
+                 aggregator_merge_norm=None,
                  enable_out_seg=True,
                  enable_out_norm=False,
                  enable_loss_equalizer=False,
@@ -121,7 +122,8 @@ class BaseDecodeHead(nn.Module, metaclass=ABCMeta):
                 in_channels=in_channels,
                 min_channels = aggregator_min_channels,
                 conv_cfg=self.conv_cfg,
-                norm_cfg=self.norm_cfg
+                norm_cfg=self.norm_cfg,
+                merge_norm=aggregator_merge_norm
             )
 
             aggregator_min_channels = aggregator_min_channels if aggregator_min_channels is not None else 0

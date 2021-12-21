@@ -74,6 +74,7 @@ model = dict(
         align_corners=False,
         enable_aggregator=True,
         aggregator_min_channels=60,
+        aggregator_merge_norm=None,
         enable_out_norm=False,
         loss_decode=[
             dict(

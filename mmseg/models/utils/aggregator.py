@@ -2,11 +2,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from mmcv.cnn import DepthwiseSeparableConvModule, ConvModule
 
+from mmseg.core.ops.math import normalize
+
 
 class IterativeAggregator(nn.Module):
     """The original repo: https://github.com/HRNet/Lite-HRNet"""
 
-    def __init__(self, in_channels, min_channels=None, conv_cfg=None, norm_cfg=dict(type='BN')):
+    def __init__(self, in_channels, min_channels=None, conv_cfg=None, norm_cfg=dict(type='BN'), merge_norm=None):
         super().__init__()
 
         num_branches = len(in_channels)
@@ -51,6 +53,23 @@ class IterativeAggregator(nn.Module):
         self.projects = nn.ModuleList(projects)
         self.expanders = nn.ModuleList(expanders)
 
+        assert merge_norm in [None, 'none', 'channel', 'spatial']
+        self.merge_norm = merge_norm
+    
+    @staticmethod
+    def _norm(x, mode=None):
+        if mode is None or mode == 'none':
+            out = x
+        elif mode == 'channel':
+            out = normalize(x, dim=1, p=2)
+        else:
+            _, c, h, w = x.size()
+            y = x.view(-1, c, h * w)
+            y = normalize(y, dim=2, p=2)
+            out = y.view(-1, c, h, w)
+        
+        return out
+
     def forward(self, x):
         x = x[::-1]
 
@@ -67,7 +86,11 @@ class IterativeAggregator(nn.Module):
                     mode='bilinear',
                     align_corners=True
                 )
-                s = s + last_x
+
+                norm_s = self._norm(s, self.merge_norm)
+                norm_x = self._norm(last_x, self.merge_norm)
+                
+                s = norm_s + norm_x
 
             s = self.projects[i](s)
             last_x = s
