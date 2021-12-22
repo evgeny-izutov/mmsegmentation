@@ -6,7 +6,7 @@ _base_ = [
 norm_cfg = dict(type='SyncBN', requires_grad=True)
 model = dict(
     decode_head=dict(
-        type='FCNHead',
+        type='SpatialGatherFCNHead',
         in_channels=[18, 60, 80, 160, 320],
         in_index=[0, 1, 2, 3, 4],
         input_transform='multiple_select',
@@ -22,6 +22,7 @@ model = dict(
         aggregator_min_channels=60,
         aggregator_merge_norm='spatial',
         enable_out_norm=False,
+        update_num_iters=1,
         loss_decode=[
             dict(
                 type='CrossEntropyLoss',

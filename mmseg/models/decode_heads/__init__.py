@@ -26,6 +26,7 @@ from .shelf_head import ShelfHead
 from .hyperseg_head import HyperSegHead
 from .memory_head import MemoryHead
 from .hamburger_head import HamburgerHead
+from .sptaial_gather_fcn_head import SpatialGatherFCNHead
 
 __all__ = [
     'FCNHead',
@@ -57,4 +58,5 @@ __all__ = [
     'HyperSegHead',
     'MemoryHead',
     'HamburgerHead',
+    'SpatialGatherFCNHead',
 ]
