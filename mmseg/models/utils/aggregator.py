@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from mmcv.cnn import DepthwiseSeparableConvModule, ConvModule
@@ -6,10 +7,13 @@ from mmseg.core.ops.math import normalize
 
 
 class IterativeAggregator(nn.Module):
-    """The original repo: https://github.com/HRNet/Lite-HRNet"""
+    """Based on: https://github.com/HRNet/Lite-HRNet"""
 
-    def __init__(self, in_channels, min_channels=None, conv_cfg=None, norm_cfg=dict(type='BN'), merge_norm=None):
+    def __init__(self, in_channels, min_channels=None, conv_cfg=None, norm_cfg=dict(type='BN'),
+                 merge_norm=None, use_concat=False):
         super().__init__()
+
+        self.use_concat = use_concat
 
         num_branches = len(in_channels)
         self.in_channels = in_channels[::-1]
@@ -17,16 +21,30 @@ class IterativeAggregator(nn.Module):
         min_channels = min_channels if min_channels is not None else 0
         assert min_channels >= 0
 
-        projects, expanders = [], []
+        out_channels = None
+        projects, expanders, fuse_layers = [], [], []
         for i in range(num_branches):
-            if i != num_branches - 1:
-                out_channels = self.in_channels[i + 1]
+            if not self.use_concat or i == 0:
+                fuse_layers.append(None)
             else:
-                out_channels = self.in_channels[i]
+                fuse_layers.append(ConvModule(
+                    in_channels=2*out_channels,
+                    out_channels=out_channels,
+                    kernel_size=1,
+                    stride=1,
+                    conv_cfg=conv_cfg,
+                    norm_cfg=norm_cfg,
+                    act_cfg=dict(type='ReLU')
+                ))
+
+            if i != num_branches - 1:
+                out_channels = max(self.in_channels[i + 1], min_channels)
+            else:
+                out_channels = max(self.in_channels[i], min_channels)
 
             projects.append(DepthwiseSeparableConvModule(
                 in_channels=max(self.in_channels[i], min_channels),
-                out_channels=max(out_channels, min_channels),
+                out_channels=out_channels,
                 kernel_size=3,
                 stride=1,
                 padding=1,
@@ -52,6 +70,7 @@ class IterativeAggregator(nn.Module):
 
         self.projects = nn.ModuleList(projects)
         self.expanders = nn.ModuleList(expanders)
+        self.fuse_layers = nn.ModuleList(fuse_layers)
 
         assert merge_norm in [None, 'none', 'channel', 'spatial']
         self.merge_norm = merge_norm
@@ -90,7 +109,11 @@ class IterativeAggregator(nn.Module):
                 norm_s = self._norm(s, self.merge_norm)
                 norm_x = self._norm(last_x, self.merge_norm)
                 
-                s = norm_s + norm_x
+                if self.use_concat:
+                    concat_s = torch.cat([norm_s, norm_x], dim=1)
+                    s = self.fuse_layers[i](concat_s)
+                else:
+                    s = norm_s + norm_x
 
             s = self.projects[i](s)
             last_x = s

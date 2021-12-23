@@ -1317,18 +1317,18 @@ class LiteHRNet(nn.Module):
         for i in range(self.num_stages):
             transition_modules = getattr(self, 'transition{}'.format(i))
 
-            x_list = []
+            stage_inputs = []
             for j in range(self.stages_spec['num_branches'][i]):
                 if transition_modules[j]:
                     if j >= len(y_list):
-                        x_list.append(transition_modules[j](y_list[-1]))
+                        stage_inputs.append(transition_modules[j](y_list[-1]))
                     else:
-                        x_list.append(transition_modules[j](y_list[j]))
+                        stage_inputs.append(transition_modules[j](y_list[j]))
                 else:
-                    x_list.append(y_list[j])
+                    stage_inputs.append(y_list[j])
 
             stage_module = getattr(self, 'stage{}'.format(i))
-            y_list = stage_module(x_list)
+            y_list = stage_module(stage_inputs)
 
         if self.out_modules is not None:
             y_list.append(self.out_modules(y_list[-1]))

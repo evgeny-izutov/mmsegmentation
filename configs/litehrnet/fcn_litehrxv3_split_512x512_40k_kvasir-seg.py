@@ -21,6 +21,7 @@ model = dict(
         enable_aggregator=True,
         aggregator_min_channels=60,
         aggregator_merge_norm='spatial',
+        aggregator_use_concat=False,
         enable_out_norm=False,
         update_num_iters=1,
         loss_decode=[
