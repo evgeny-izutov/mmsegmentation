@@ -132,6 +132,8 @@ class BaseDecodeHead(nn.Module, metaclass=ABCMeta):
         self.loss_equalizer = None
         if enable_loss_equalizer:
             self.loss_equalizer = LossEqualizer()
+        
+        self.forward_output = None
 
     @property
     def loss_target_name(self):
@@ -262,10 +264,14 @@ class BaseDecodeHead(nn.Module, metaclass=ABCMeta):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
+
         seg_logits = self.forward(inputs)
         losses = self.losses(seg_logits, gt_semantic_seg, train_cfg, pixel_weights)
 
-        return losses, seg_logits
+        if self.forward_output is not None:
+            return losses, self.forward_output
+        else:
+            return losses, seg_logits
 
     def forward_test(self, inputs, img_metas, test_cfg):
         """Forward function for testing.
@@ -282,7 +288,13 @@ class BaseDecodeHead(nn.Module, metaclass=ABCMeta):
         Returns:
             Tensor: Output segmentation map.
         """
-        return self.forward(inputs)
+
+        seg_logits = self.forward(inputs)
+        
+        if self.forward_output is not None:
+            return self.forward_output
+        else:
+            return seg_logits
 
     def cls_seg(self, feat):
         """Classify each pixel."""

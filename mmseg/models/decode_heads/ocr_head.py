@@ -153,7 +153,8 @@ class OCRHead(BaseCascadeDecodeHead):
             Default: 1.
     """
 
-    def __init__(self, ocr_channels, scale=1, spatial_scale=1.0, out_act_cfg='default', sep_conv=False, **kwargs):
+    def __init__(self, ocr_channels, scale=1, spatial_scale=1.0, out_act_cfg='default', sep_conv=False,
+                 external_spatial_gather=False, **kwargs):
         super(OCRHead, self).__init__(**kwargs)
 
         self.ocr_channels = ocr_channels
@@ -179,9 +180,10 @@ class OCRHead(BaseCascadeDecodeHead):
             act_cfg=self.act_cfg,
             out_act_cfg=out_act_cfg
         )
-        self.spatial_gather_module = SpatialGatherModule(
-            scale=self.spatial_scale
-        )
+        
+        self.spatial_gather_module = None
+        if not external_spatial_gather:
+            self.spatial_gather_module = SpatialGatherModule(scale=self.spatial_scale)
 
     @staticmethod
     def _build_conv_module(sep_conv, in_channels, out_channels, **kwargs):
@@ -205,9 +207,13 @@ class OCRHead(BaseCascadeDecodeHead):
         x = self._transform_inputs(inputs)
 
         feats = self.bottleneck(x)
-        context = self.spatial_gather_module(feats, prev_output)
-        augmented_feat = self.object_context_block(feats, context)
 
+        if self.spatial_gather_module is not None:
+            context = self.spatial_gather_module(feats, prev_output)
+        else:
+            context = prev_output        
+
+        augmented_feat = self.object_context_block(feats, context)
         output = self.cls_seg(augmented_feat)
 
         return output
