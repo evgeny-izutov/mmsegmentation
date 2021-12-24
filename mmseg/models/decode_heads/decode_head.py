@@ -7,7 +7,7 @@ from mmcv.cnn import normal_init
 from mmcv.runner import auto_fp16, force_fp32
 
 from mmseg.core import normalize, add_prefix, AngularPWConv
-from mmseg.models.utils import IterativeAggregator
+from mmseg.models.utils import IterativeAggregator, IterativeConcatAggregator
 from mmseg.ops import resize
 from ..builder import build_loss
 from ..losses import accuracy, LossEqualizer
@@ -119,13 +119,13 @@ class BaseDecodeHead(nn.Module, metaclass=ABCMeta):
             assert isinstance(in_channels, (tuple, list))
             assert len(in_channels) > 1
 
-            self.aggregator = IterativeAggregator(
+            self.aggregator = IterativeConcatAggregator(
                 in_channels=in_channels,
                 min_channels = aggregator_min_channels,
                 conv_cfg=self.conv_cfg,
                 norm_cfg=self.norm_cfg,
                 merge_norm=aggregator_merge_norm,
-                use_concat=aggregator_use_concat
+                # use_concat=aggregator_use_concat
             )
 
             aggregator_min_channels = aggregator_min_channels if aggregator_min_channels is not None else 0
