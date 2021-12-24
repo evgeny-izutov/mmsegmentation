@@ -119,13 +119,13 @@ class BaseDecodeHead(nn.Module, metaclass=ABCMeta):
             assert isinstance(in_channels, (tuple, list))
             assert len(in_channels) > 1
 
-            self.aggregator = IterativeConcatAggregator(
+            self.aggregator = IterativeAggregator(
                 in_channels=in_channels,
                 min_channels = aggregator_min_channels,
                 conv_cfg=self.conv_cfg,
                 norm_cfg=self.norm_cfg,
                 merge_norm=aggregator_merge_norm,
-                # use_concat=aggregator_use_concat
+                use_concat=aggregator_use_concat
             )
 
             aggregator_min_channels = aggregator_min_channels if aggregator_min_channels is not None else 0
