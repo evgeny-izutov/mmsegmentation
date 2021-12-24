@@ -8,10 +8,8 @@ from .fcn_head import FCNHead
 def update_logits(feats, logits):
     batch_size, num_classes, height, width = logits.size()
     channels = feats.size(1)
-    # scale = float(height * width) ** (-0.5)
 
     logits = logits.view(batch_size, num_classes, -1)  # [batch_size, num_classes, height*width]
-    # probs = F.softmax(scale * logits, dim=2)  # [batch_size, num_classes, height*width]
     probs = F.softmax(logits, dim=2)  # [batch_size, num_classes, height*width]
 
     feats = feats.view(batch_size, channels, -1)  # [batch_size, channels, height*width]
