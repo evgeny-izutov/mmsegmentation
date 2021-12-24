@@ -1,6 +1,6 @@
 _base_ = [
     '../_base_/models/fcn_litehr18_no-aggregator.py', '../_base_/datasets/kvasir_extra.py',
-    '../_base_/default_runtime.py', '../_base_/schedules/schedule_step_40k_ml.py'
+    '../_base_/default_runtime.py', '../_base_/schedules/schedule_step_40k_ml_adam.py'
 ]
 
 norm_cfg = dict(type='SyncBN', requires_grad=True)
@@ -188,5 +188,3 @@ model = dict(
 evaluation = dict(
     metric='mDice',
 )
-
-find_unused_parameters = True
