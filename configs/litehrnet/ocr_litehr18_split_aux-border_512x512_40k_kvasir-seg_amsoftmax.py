@@ -1,6 +1,6 @@
 _base_ = [
     '../_base_/models/fcn_litehr18_no-aggregator.py', '../_base_/datasets/kvasir_extra.py',
-    '../_base_/default_runtime.py', '../_base_/schedules/schedule_step_40k_ml_adam.py'
+    '../_base_/default_runtime.py', '../_base_/schedules/schedule_step_40k_ml.py'
 ]
 
 norm_cfg = dict(type='SyncBN', requires_grad=True)
@@ -22,7 +22,7 @@ model = dict(
              align_corners=False,
              enable_aggregator=True,
              aggregator_merge_norm=None,
-             aggregator_use_concat=True,
+             aggregator_use_concat=False,
              enable_out_norm=False,
              enable_loss_equalizer=True,
              loss_decode=[
@@ -53,7 +53,7 @@ model = dict(
              align_corners=False,
              enable_aggregator=True,
              aggregator_merge_norm=None,
-             aggregator_use_concat=True,
+             aggregator_use_concat=False,
              enable_out_norm=True,
              loss_decode=[
                  dict(type='AMSoftmaxLoss',
@@ -97,7 +97,7 @@ model = dict(
              align_corners=False,
              enable_aggregator=True,
              aggregator_merge_norm=None,
-             aggregator_use_concat=True,
+             aggregator_use_concat=False,
              enable_out_norm=True,
              loss_decode=[
                  dict(type='AMSoftmaxLoss',
@@ -140,7 +140,7 @@ model = dict(
              align_corners=False,
              enable_aggregator=True,
              aggregator_merge_norm=None,
-             aggregator_use_concat=True,
+             aggregator_use_concat=False,
              enable_out_norm=False,
              enable_loss_equalizer=True,
              loss_target='gt_class_borders',
