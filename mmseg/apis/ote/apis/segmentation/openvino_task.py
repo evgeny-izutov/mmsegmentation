@@ -15,11 +15,9 @@
 import attr
 import logging
 import inspect
+import io
 import json
 import os
-from shutil import copyfile, copytree
-import sys
-import subprocess  # nosec
 import tempfile
 from addict import Dict as ADDict
 from typing import Any, Dict, Tuple, Optional, Union
@@ -61,6 +59,7 @@ from ote_sdk.serialization.label_mapper import LabelSchemaMapper, label_schema_t
 from .configuration import OTESegmentationConfig
 from openvino.model_zoo.model_api.models import Model
 from openvino.model_zoo.model_api.adapters import create_core, OpenvinoAdapter
+
 from . import model_wrappers
 
 
@@ -177,35 +176,26 @@ class OpenVINOSegmentationTask(IDeploymentTask, IInferenceTask, IEvaluationTask,
         parameters['converter_type'] = 'SEGMENTATION'
         parameters['model_parameters'] = self.inferencer.configuration
         parameters['model_parameters']['labels'] = LabelSchemaMapper.forward(self.task_environment.label_schema)
-        name_of_package = "demo_package"
-        with tempfile.TemporaryDirectory() as tempdir:
-            copyfile(os.path.join(work_dir, "setup.py"), os.path.join(tempdir, "setup.py"))
-            copyfile(os.path.join(work_dir, "requirements.txt"), os.path.join(tempdir, "requirements.txt"))
-            set_proper_git_commit_hash(os.path.join(tempdir, "requirements.txt"))
-            copytree(os.path.join(work_dir, name_of_package), os.path.join(tempdir, name_of_package))
-            config_path = os.path.join(tempdir, name_of_package, "config.json")
-            print(parameters)
-            with open(config_path, "w", encoding='utf-8') as f:
-                json.dump(parameters, f, ensure_ascii=False, indent=4)
-            # generate model.py
+
+        zip_buffer = io.BytesIO()
+        with ZipFile(zip_buffer, 'w') as arch:
+            # model files
+            arch.writestr(os.path.join("model", "model.xml"), self.model.get_data("openvino.xml"))
+            arch.writestr(os.path.join("model", "model.bin"), self.model.get_data("openvino.bin"))
+            arch.writestr(
+                os.path.join("model", "config.json"), json.dumps(parameters, ensure_ascii=False, indent=4)
+            )
+            # python files
             if (inspect.getmodule(self.inferencer.model) in
                [module[1] for module in inspect.getmembers(model_wrappers, inspect.ismodule)]):
-                copyfile(model_file, os.path.join(tempdir, name_of_package, "model.py"))
-            # create wheel package
-            subprocess.run([sys.executable, os.path.join(tempdir, "setup.py"), 'bdist_wheel',
-                            '--dist-dir', tempdir, 'clean', '--all'])
-            wheel_file_name = [f for f in os.listdir(tempdir) if f.endswith('.whl')][0]
-
-            with ZipFile(os.path.join(tempdir, "openvino.zip"), 'w') as zip:
-                zip.writestr(os.path.join("model", "model.xml"), self.model.get_data("openvino.xml"))
-                zip.writestr(os.path.join("model", "model.bin"), self.model.get_data("openvino.bin"))
-                zip.write(os.path.join(tempdir, "requirements.txt"), os.path.join("python", "requirements.txt"))
-                zip.write(os.path.join(work_dir, "README.md"), os.path.join("python", "README.md"))
-                zip.write(os.path.join(work_dir, "LICENSE"), os.path.join("python", "LICENSE"))
-                zip.write(os.path.join(work_dir, "demo.py"), os.path.join("python", "demo.py"))
-                zip.write(os.path.join(tempdir, wheel_file_name), os.path.join("python", wheel_file_name))
-            with open(os.path.join(tempdir, "openvino.zip"), "rb") as file:
-                output_model.exportable_code = file.read()
+                arch.write(model_file, os.path.join("python", "model.py"))
+            arch.writestr(
+                os.path.join("python", "requirements.txt"),
+                set_proper_git_commit_hash(os.path.join(work_dir, "requirements.txt")),
+            )
+            arch.write(os.path.join(work_dir, "README.md"), os.path.join("python", "README.md"))
+            arch.write(os.path.join(work_dir, "demo.py"), os.path.join("python", "demo.py"))
+        output_model.exportable_code = zip_buffer.getvalue()
         logger.info('Deploying completed')
 
     def optimize(self,
@@ -213,6 +203,7 @@ class OpenVINOSegmentationTask(IDeploymentTask, IInferenceTask, IEvaluationTask,
                  dataset: DatasetEntity,
                  output_model: ModelEntity,
                  optimization_parameters: Optional[OptimizationParameters]):
+        logger.info('Start POT optimization')
 
         if optimization_type is not OptimizationType.POT:
             raise ValueError("POT is the only supported optimization type for OpenVino models")
