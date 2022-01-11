@@ -187,5 +187,5 @@ model = dict(
     ),
 )
 evaluation = dict(
-    metric='mDice',
+    metric='mIoU',
 )
