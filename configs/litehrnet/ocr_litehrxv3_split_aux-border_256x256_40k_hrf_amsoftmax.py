@@ -1,6 +1,6 @@
 _base_ = [
     '../_base_/models/fcn_litehrxv3_no-aggregator.py', '../_base_/datasets/hrf_extra.py',
-    '../_base_/default_runtime.py', '../_base_/schedules/schedule_step_40k_ml_adam.py'
+    '../_base_/default_runtime.py', '../_base_/schedules/schedule_step_40k_ml.py'
 ]
 
 norm_cfg = dict(type='SyncBN', requires_grad=True)
