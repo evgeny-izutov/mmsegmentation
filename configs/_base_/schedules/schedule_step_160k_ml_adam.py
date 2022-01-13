@@ -1,9 +1,9 @@
 # optimizer
 optimizer = dict(
-    type='SGD',
+    type='Adam',
     lr=1e-3,
-    momentum=0.9,
-    weight_decay=0.0005
+    eps=1e-08,
+    weight_decay=0.0
 )
 optimizer_config = dict(
     grad_clip=dict(
@@ -17,7 +17,7 @@ optimizer_config = dict(
 params_config = dict(
     type='FreezeLayers',
     by_epoch=False,
-    iters=2000,
+    iters=0,
     open_layers=[r'backbone\.aggregator\.', r'neck\.', r'decode_head\.', r'auxiliary_head\.']
 )
 
@@ -27,11 +27,8 @@ lr_config = dict(
     by_epoch=False,
     gamma=0.1,
     step=[100000, 130000],
-    fixed='constant',
-    fixed_iters=2000,
-    fixed_ratio=10.0,
     warmup='cos',
-    warmup_iters=4000,
+    warmup_iters=6000,
     warmup_ratio=1e-2,
 )
 
@@ -49,4 +46,4 @@ evaluation = dict(
     metric='mIoU'
 )
 
-find_unused_parameters = True
+find_unused_parameters = False
