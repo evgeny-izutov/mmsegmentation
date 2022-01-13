@@ -60,7 +60,7 @@ class OTESegmentationTrainingTask(OTESegmentationInferenceTask, ITrainingTask):
 
         # Evaluate model performance before training.
         # FIXME: This could be safely removed.
-        _, initial_performance = self._infer_segmentor(self._model, config, val_dataset, eval=True)
+        initial_performance = self._infer_segmentor(self._model, config, val_dataset, eval=True)
         logger.info('INITIAL MODEL PERFORMANCE\n' + str(initial_performance))
 
         # Check for stop signal between pre-eval and training. If training is cancelled at this point,
@@ -103,7 +103,7 @@ class OTESegmentationTrainingTask(OTESegmentationInferenceTask, ITrainingTask):
         self._model.load_state_dict(best_checkpoint['state_dict'])
 
         # Evaluate model performance after training.
-        _, final_performance = self._infer_segmentor(self._model, config, val_dataset, True)
+        final_performance = self._infer_segmentor(self._model, config, val_dataset, eval=True)
 
         # Add mDice metric and loss curves
         training_metrics = self._generate_training_metrics_group(learning_curves)
