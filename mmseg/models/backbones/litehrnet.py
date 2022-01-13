@@ -299,7 +299,8 @@ class ConditionalChannelWeighting(nn.Module):
                  with_cp=False,
                  dropout=None,
                  weighting_module_version='v1',
-                 neighbour_weighting=False):
+                 neighbour_weighting=False,
+                 dw_ksize=3):
         super().__init__()
 
         self.with_cp = with_cp
@@ -319,9 +320,9 @@ class ConditionalChannelWeighting(nn.Module):
             ConvModule(
                 channel,
                 channel,
-                kernel_size=3,
+                kernel_size=dw_ksize,
                 stride=self.stride,
-                padding=1,
+                padding=dw_ksize // 2,
                 groups=channel,
                 conv_cfg=conv_cfg,
                 norm_cfg=norm_cfg,
