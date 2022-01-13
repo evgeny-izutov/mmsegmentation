@@ -281,17 +281,25 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
 
         hook = dump_features_hook if dump_features else dummy_dump_features_hook
 
+        from collections import defaultdict
+        stats = defaultdict(float)
+            
         # Use a single gpu for testing. Set in both mm_val_dataloader and eval_model
         with eval_model.module.backbone.register_forward_hook(hook):
-            for data in mm_val_dataloader:
+            for i, data in enumerate(mm_val_dataloader):
                 with torch.no_grad():
                     result = eval_model(return_loss=False, output_logits=output_logits, **data)
+                assert len(result) == 1
+                if eval:
+                    for k, v in mm_val_dataset.compute_stat_per_frame(result[0], frame_id=i).items():
+                        stats[k] += v
                 eval_predictions.extend(result)
 
         metric = None
         if eval:
             assert not output_logits
-            metric = mm_val_dataset.evaluate(eval_predictions, metric=metric_name)[metric_name]
+            metric = 2 * stats['total_area_intersect'] / (stats['total_area_pred_label'] + stats['total_area_label'])
+            metric = np.round(np.nanmean(metric) * 100.0, 2) / 100.0
 
         assert len(eval_predictions) == len(feature_vectors), f'{len(eval_predictions)} != {len(feature_vectors)}'
         eval_predictions = zip(eval_predictions, feature_vectors)
