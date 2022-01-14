@@ -362,7 +362,7 @@ def load_dataset_items(ann_file_path: str,
     for item in dataset:
         annotations = create_annotation_from_hard_seg_map(hard_seg_map=item['gt_semantic_seg'],
                                                           labels=labels_list)
-        image = Image(data=item['img'])
+        image = Image(file_path=item['filename'])
         annotation_scene = AnnotationSceneEntity(kind=AnnotationSceneKind.ANNOTATION,
                                                  annotations=annotations)
         dataset_items.append(DatasetItemEntity(media=image,
