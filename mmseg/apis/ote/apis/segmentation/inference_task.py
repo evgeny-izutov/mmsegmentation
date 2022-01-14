@@ -19,7 +19,8 @@ import os
 import shutil
 import tempfile
 import warnings
-from typing import List, Optional, Tuple
+from collections import defaultdict
+from typing import Optional
 
 import numpy as np
 import torch
@@ -233,7 +234,6 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
 
         hook = dump_features_hook if dump_features else dummy_dump_features_hook
 
-        from collections import defaultdict
         stats = defaultdict(float)
         
         label_dictionary = {
@@ -251,7 +251,6 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
                         stats[k] += v
 
                 if dump_predictions_to_dataset:
-                    print(feature_vector.shape)
                     soft_prediction = np.transpose(result[0], axes=(1, 2, 0))
                     hard_prediction = create_hard_prediction_from_soft_prediction(
                         soft_prediction=soft_prediction,
