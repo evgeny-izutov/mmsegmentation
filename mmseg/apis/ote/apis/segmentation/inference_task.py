@@ -189,18 +189,57 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
         hook_handle = self._model.register_forward_hook(hook)
 
         self._infer_segmentor(self._model, self._config, dataset, eval=False,
-                              output_logits=True, dump_features=True, dump_predictions_to_dataset=True)
+                              output_logits=True, dump_features=True, add_predictions_to_dataset=True)
 
         pre_hook_handle.remove()
         hook_handle.remove()
 
         return dataset
+    
+    def _add_predictions_to_dataset_item(self, prediction, feature_vector, dataset_item):
+        label_dictionary = {
+            i + 1: self._labels[i] for i in range(len(self._labels))
+        }
+                
+        soft_prediction = np.transpose(prediction, axes=(1, 2, 0))
+        hard_prediction = create_hard_prediction_from_soft_prediction(
+            soft_prediction=soft_prediction,
+            soft_threshold=self._hyperparams.postprocessing.soft_threshold,
+            blur_strength=self._hyperparams.postprocessing.blur_strength,
+        )
+        annotations = create_annotation_from_segmentation_map(
+            hard_prediction=hard_prediction,
+            soft_prediction=soft_prediction,
+            label_map=label_dictionary,
+        )
+        dataset_item.append_annotations(annotations=annotations)
+        if feature_vector is not None:
+            active_score = TensorEntity(name="representation_vector", numpy=feature_vector)
+            dataset_item.append_metadata_item(active_score, model=self._task_environment.model)
+            for label_index, label in label_dictionary.items():
+                if label_index == 0:
+                    continue
+                if len(soft_prediction.shape) == 3:
+                    current_label_soft_prediction = soft_prediction[:, :, label_index]
+                else:
+                    current_label_soft_prediction = soft_prediction
+                min_soft_score = np.min(current_label_soft_prediction)
+                max_soft_score = np.max(current_label_soft_prediction)
+                factor = 255.0 / (max_soft_score - min_soft_score + 1e-12)
+                result_media_numpy = (factor * (current_label_soft_prediction - min_soft_score)).astype(np.uint8)
+                result_media = ResultMediaEntity(name=f'{label.name}',
+                                                type='Soft Prediction',
+                                                label=label,
+                                                annotation_scene=dataset_item.annotation_scene,
+                                                roi=dataset_item.roi,
+                                                numpy=result_media_numpy)
+                dataset_item.append_metadata_item(result_media, model=self._task_environment.model)
 
     def _infer_segmentor(self,
                          model: torch.nn.Module, config: Config, dataset: DatasetEntity,
                          eval: Optional[bool] = False, metric_name: Optional[str] = 'mDice',
                          output_logits: bool = False, dump_features: bool = True,
-                         dump_predictions_to_dataset: bool = False) -> Optional[float]:
+                         add_predictions_to_dataset: bool = False) -> Optional[float]:
         model.eval()
 
         test_config = prepare_for_testing(config, dataset)
@@ -235,10 +274,6 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
         hook = dump_features_hook if dump_features else dummy_dump_features_hook
 
         stats = defaultdict(float)
-        
-        label_dictionary = {
-            i + 1: self._labels[i] for i in range(len(self._labels))
-        }
             
         # Use a single gpu for testing. Set in both mm_val_dataloader and eval_model
         with eval_model.module.backbone.register_forward_hook(hook):
@@ -250,41 +285,8 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
                     for k, v in mm_val_dataset.compute_stat_per_frame(result[0], frame_id=i).items():
                         stats[k] += v
 
-                if dump_predictions_to_dataset:
-                    soft_prediction = np.transpose(result[0], axes=(1, 2, 0))
-                    hard_prediction = create_hard_prediction_from_soft_prediction(
-                        soft_prediction=soft_prediction,
-                        soft_threshold=self._hyperparams.postprocessing.soft_threshold,
-                        blur_strength=self._hyperparams.postprocessing.blur_strength,
-                    )
-                    annotations = create_annotation_from_segmentation_map(
-                        hard_prediction=hard_prediction,
-                        soft_prediction=soft_prediction,
-                        label_map=label_dictionary,
-                    )
-                    dataset_item.append_annotations(annotations=annotations)
-                    if feature_vector is not None:
-                        active_score = TensorEntity(name="representation_vector", numpy=feature_vector)
-                        dataset_item.append_metadata_item(active_score, model=self._task_environment.model)
-                    if dump_features:
-                        for label_index, label in label_dictionary.items():
-                            if label_index == 0:
-                                continue
-                            if len(soft_prediction.shape) == 3:
-                                current_label_soft_prediction = soft_prediction[:, :, label_index]
-                            else:
-                                current_label_soft_prediction = soft_prediction
-                            min_soft_score = np.min(current_label_soft_prediction)
-                            max_soft_score = np.max(current_label_soft_prediction)
-                            factor = 255.0 / (max_soft_score - min_soft_score + 1e-12)
-                            result_media_numpy = (factor * (current_label_soft_prediction - min_soft_score)).astype(np.uint8)
-                            result_media = ResultMediaEntity(name=f'{label.name}',
-                                                            type='Soft Prediction',
-                                                            label=label,
-                                                            annotation_scene=dataset_item.annotation_scene,
-                                                            roi=dataset_item.roi,
-                                                            numpy=result_media_numpy)
-                            dataset_item.append_metadata_item(result_media, model=self._task_environment.model)
+                if add_predictions_to_dataset:
+                    self._add_predictions_to_dataset_item(result[0], feature_vector, dataset_item)
 
         metric = None
         if eval:
