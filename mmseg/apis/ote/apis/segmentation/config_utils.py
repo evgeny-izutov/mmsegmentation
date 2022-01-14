@@ -85,6 +85,7 @@ def patch_config(config: Config,
 
     if 'evaluation' not in config:
         config.evaluation = ConfigDict()
+    config.evaluation['statistic_based'] = True
     evaluation_metric = config.evaluation.get('metric')
     if evaluation_metric is not None:
         config.evaluation.save_best = evaluation_metric
