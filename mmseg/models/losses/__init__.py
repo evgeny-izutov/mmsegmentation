@@ -5,6 +5,7 @@ from .generalized_dice_loss import GeneralizedDiceLoss
 from .boundary_loss import BoundaryLoss
 from .am_softmax import AMSoftmaxLoss
 from .mutual_loss import MutualLoss
+from .margin_calibration import MarginCalibrationLoss
 from .utils import reduce_loss, weight_reduce_loss, weighted_loss, LossEqualizer
 
 __all__ = [
@@ -22,5 +23,6 @@ __all__ = [
     'BoundaryLoss',
     'AMSoftmaxLoss',
     'MutualLoss',
+    'MarginCalibrationLoss',
     'LossEqualizer',
 ]
