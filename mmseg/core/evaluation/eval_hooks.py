@@ -38,7 +38,7 @@ class EvalHook(_EvalHook):
             return
 
         from mmseg.apis import single_gpu_test
-        results = single_gpu_test(runner.model, self.dataloader, show=False)
+        results = single_gpu_test(runner.model, self.dataloader, show=False, efficient_test=self.efficient_test)
         runner.log_buffer.output['eval_iter_num'] = len(self.dataloader)
         key_score = self.evaluate(runner, results)
         if self.save_best:
