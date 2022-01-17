@@ -200,8 +200,6 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
         return dataset
     
     def _add_predictions_to_dataset_item(self, prediction, feature_vector, dataset_item, is_evaluation):
-
-                
         soft_prediction = np.transpose(prediction, axes=(1, 2, 0))
         hard_prediction = create_hard_prediction_from_soft_prediction(
             soft_prediction=soft_prediction,
@@ -214,9 +212,11 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
             label_map=self._label_dictionary,
         )
         dataset_item.append_annotations(annotations=annotations)
+
         if feature_vector is not None:
             active_score = TensorEntity(name="representation_vector", numpy=feature_vector)
             dataset_item.append_metadata_item(active_score, model=self._task_environment.model)
+
         if not is_evaluation:
             for label_index, label in self._label_dictionary.items():
                 if label_index == 0:
