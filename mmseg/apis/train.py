@@ -1,17 +1,20 @@
 import random
 import warnings
+import os.path as osp
 
 import numpy as np
 import torch
+import mmcv
 from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
 from mmcv.runner import HOOKS, build_optimizer, build_runner
 from mmcv.utils import build_from_cfg
 
 from mmseg.core import DistEvalHook, EvalHook, CustomOptimizerHook, load_checkpoint, IterBasedEMAHook
-from mmseg.datasets import build_dataloader, build_dataset
+from mmseg.datasets import build_dataloader, build_dataset, RepeatDataset
 from mmseg.utils import get_root_logger
 from mmseg.parallel import MMDataCPU
 from mmseg.models import build_params_manager
+from mmseg.models.losses import MarginCalibrationLoss
 
 
 def set_random_seed(seed, deterministic=False):
@@ -33,6 +36,71 @@ def set_random_seed(seed, deterministic=False):
     if deterministic:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
+
+
+def needed_collect_dataset_stat(cfg):
+    for head in ['decode_head', 'auxiliary_head']:
+        losses = cfg.model[head].loss_decode
+        if not isinstance(losses, (tuple, list)):
+            losses = [losses]
+        
+        for loss in losses:
+            if loss.type == 'MarginCalibrationLoss':
+                return True
+
+    return False
+
+
+def set_dataset_stat(model, dataset_stat):
+    for head in ['decode_head', 'auxiliary_head']:
+        head_module = getattr(model, head)
+        if head_module is None:
+            continue
+
+        losses = head_module.loss_modules
+        for loss in losses:
+            if not isinstance(loss, MarginCalibrationLoss):
+                continue
+
+            loss.set_margins(dataset_stat)
+
+
+def collect_dataset_stat(dataset, tau=10, upsilon=1):
+    # Source code: https://github.com/yutao1008/margin_calibration
+
+    if isinstance(dataset, RepeatDataset):
+        dataset = dataset.dataset
+    
+    num_classes = len(dataset.CLASSES)
+    z = np.zeros((num_classes,))
+
+    for item_id in range(len(dataset)):
+        ann_info = dataset.get_ann_info(item_id)
+        seg_map_file = osp.join(dataset.ann_dir, ann_info['seg_map'])
+        gt_seg_map = mmcv.imread(seg_map_file, flag='unchanged', backend='pillow')
+        if dataset.reduce_zero_label:
+            assert dataset.ignore_index == 255
+            gt_seg_map[gt_seg_map == 0] = 255
+            gt_seg_map = gt_seg_map - 1
+            gt_seg_map[gt_seg_map == 254] = 255
+
+        mask = gt_seg_map != dataset.ignore_index
+        labels = gt_seg_map[mask].astype(np.uint8)
+        count_l = np.bincount(labels, minlength=num_classes)
+        z += count_l
+    
+    n_pixels = np.sum(z)
+    
+    rho_i0s, rho_0is = [], []
+    for pixels in z:
+        cls_prob = pixels / n_pixels
+        bg_pixels = n_pixels - pixels
+        rho_0i = tau * bg_pixels**0.5 / pixels
+        rho_i0 = rho_0i * cls_prob * pixels**0.5 / (upsilon*bg_pixels - cls_prob * bg_pixels**0.5)
+        rho_i0s.append(rho_i0)
+        rho_0is.append(rho_0i)
+    
+    return np.array([rho_i0s,rho_0is])
 
 
 def train_segmentor(model,
@@ -59,6 +127,10 @@ def train_segmentor(model,
             drop_last=False)
         for ds in dataset
     ]
+
+    if needed_collect_dataset_stat(cfg):
+        dataset_stat = collect_dataset_stat(dataset[0])
+        set_dataset_stat(model, dataset_stat)
 
     if torch.cuda.is_available():
         # put model on gpus
