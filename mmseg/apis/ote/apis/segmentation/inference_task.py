@@ -76,6 +76,9 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
 
         self._model_name = task_environment.model_template.name
         self._labels = task_environment.get_labels(include_empty=False)
+        self._label_dictionary = {
+            i + 1: self._labels[i] for i in range(len(self._labels))
+        }
 
         template_file_path = task_environment.model_template.model_template_path
 
@@ -175,7 +178,6 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
         else:
             update_progress_callback = default_infer_progress_callback
             is_evaluation = False
-        dump_features = not is_evaluation
 
         time_monitor = InferenceProgressCallback(len(dataset), update_progress_callback)
 
@@ -189,17 +191,16 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
         hook_handle = self._model.register_forward_hook(hook)
 
         self._infer_segmentor(self._model, self._config, dataset, eval=False,
-                              output_logits=True, dump_features=True, add_predictions_to_dataset=True)
+                              output_logits=True, dump_features=True, add_predictions_to_dataset=True,
+                              is_evaluation=is_evaluation)
 
         pre_hook_handle.remove()
         hook_handle.remove()
 
         return dataset
     
-    def _add_predictions_to_dataset_item(self, prediction, feature_vector, dataset_item):
-        label_dictionary = {
-            i + 1: self._labels[i] for i in range(len(self._labels))
-        }
+    def _add_predictions_to_dataset_item(self, prediction, feature_vector, dataset_item, is_evaluation):
+
                 
         soft_prediction = np.transpose(prediction, axes=(1, 2, 0))
         hard_prediction = create_hard_prediction_from_soft_prediction(
@@ -210,13 +211,14 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
         annotations = create_annotation_from_segmentation_map(
             hard_prediction=hard_prediction,
             soft_prediction=soft_prediction,
-            label_map=label_dictionary,
+            label_map=self._label_dictionary,
         )
         dataset_item.append_annotations(annotations=annotations)
         if feature_vector is not None:
             active_score = TensorEntity(name="representation_vector", numpy=feature_vector)
             dataset_item.append_metadata_item(active_score, model=self._task_environment.model)
-            for label_index, label in label_dictionary.items():
+        if not is_evaluation:
+            for label_index, label in self._label_dictionary.items():
                 if label_index == 0:
                     continue
                 if len(soft_prediction.shape) == 3:
@@ -239,7 +241,8 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
                          model: torch.nn.Module, config: Config, dataset: DatasetEntity,
                          eval: Optional[bool] = False, metric_name: Optional[str] = 'mDice',
                          output_logits: bool = False, dump_features: bool = True,
-                         add_predictions_to_dataset: bool = False) -> Optional[float]:
+                         add_predictions_to_dataset: bool = False,
+                         is_evaluation: bool = False) -> Optional[float]:
         model.eval()
 
         test_config = prepare_for_testing(config, dataset)
@@ -286,7 +289,7 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
                         stats[k] += v
 
                 if add_predictions_to_dataset:
-                    self._add_predictions_to_dataset_item(result[0], feature_vector, dataset_item)
+                    self._add_predictions_to_dataset_item(result[0], feature_vector, dataset_item, is_evaluation=is_evaluation)
 
         metric = None
         if eval:
