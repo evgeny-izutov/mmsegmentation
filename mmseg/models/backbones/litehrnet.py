@@ -300,7 +300,7 @@ class ConditionalChannelWeighting(nn.Module):
                  dropout=None,
                  weighting_module_version='v1',
                  neighbour_weighting=False,
-                 dw_ksize=7):
+                 dw_ksize=3):
         super().__init__()
 
         self.with_cp = with_cp
