@@ -5,6 +5,7 @@ import os.path as osp
 import numpy as np
 import torch
 import mmcv
+import torch.nn as nn
 from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
 from mmcv.runner import HOOKS, build_optimizer, build_runner
 from mmcv.utils import build_from_cfg
@@ -39,33 +40,41 @@ def set_random_seed(seed, deterministic=False):
 
 
 def needed_collect_dataset_stat(cfg):
-    for head in ['decode_head', 'auxiliary_head']:
-        losses = cfg.model[head].loss_decode
-        if not isinstance(losses, (tuple, list)):
-            losses = [losses]
+    for head_type in ['decode_head', 'auxiliary_head']:
+        heads = cfg.model[head_type]
+        if not isinstance(heads, (tuple, list)):
+            heads = [heads]
+
+        for head in heads:
+            losses = head.loss_decode
+            if not isinstance(losses, (tuple, list)):
+                losses = [losses]
         
-        for loss in losses:
-            if loss.type == 'MarginCalibrationLoss':
-                return True
+            for loss in losses:
+                if loss.type == 'MarginCalibrationLoss':
+                    return True
 
     return False
 
 
 def set_dataset_stat(model, dataset_stat):
-    for head in ['decode_head', 'auxiliary_head']:
-        head_module = getattr(model, head)
-        if head_module is None:
+    for head_type in ['decode_head', 'auxiliary_head']:
+        heads = getattr(model, head_type)
+        if heads is None:
             continue
 
-        losses = head_module.loss_modules
-        for loss in losses:
-            if not isinstance(loss, MarginCalibrationLoss):
-                continue
+        if not isinstance(heads, nn.ModuleList):
+            heads = [heads]
+        
+        for head in heads:
+            for loss in head.loss_modules:
+                if not isinstance(loss, MarginCalibrationLoss):
+                    continue
 
-            loss.set_margins(dataset_stat)
+                loss.set_margins(dataset_stat)
 
 
-def collect_dataset_stat(dataset, tau=10, upsilon=1):
+def collect_dataset_stat(dataset, tau=10.0, upsilon=1.0):
     # Source code: https://github.com/yutao1008/margin_calibration
 
     if isinstance(dataset, RepeatDataset):
