@@ -5,8 +5,8 @@
 from mmcv.runner.hooks.hook import HOOKS, Hook
 from mmcv.runner.dist_utils import master_only
 
-
-@HOOKS.register_module()
+# Argument 'force' used to work with mmdetection and mmsegmentation repositories in one environment. 
+@HOOKS.register_module(force=True)
 class CompressionHook(Hook):
     def __init__(self, compression_ctrl=None):
         self.compression_ctrl = compression_ctrl
@@ -22,7 +22,7 @@ class CompressionHook(Hook):
             runner.logger.info(self.compression_ctrl.statistics().to_str())
 
 
-@HOOKS.register_module()
+@HOOKS.register_module(force=True)
 class CheckpointHookBeforeTraining(Hook):
     """Save checkpoints before training.
 
