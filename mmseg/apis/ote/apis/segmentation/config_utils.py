@@ -15,7 +15,6 @@
 
 import copy
 import glob
-import logging
 import math
 import os
 import tempfile
@@ -27,10 +26,11 @@ from ote_sdk.entities.datasets import DatasetEntity
 from ote_sdk.entities.label import LabelEntity
 from ote_sdk.usecases.reporting.time_monitor_callback import TimeMonitorCallback
 
+from mmseg.utils.logger import get_root_logger
 from .configuration import OTESegmentationConfig
 
 
-logger = logging.getLogger(__name__)
+logger = get_root_logger()
 
 
 def is_epoch_based_runner(runner_config: ConfigDict):
@@ -119,6 +119,7 @@ def set_hyperparams(config: Config, hyperparams: OTESegmentationConfig):
 
     config.params_config.iters = fixed_iters
     config.lr_config.fixed_iters = fixed_iters
+    config.find_unused_parameters = fixed_iters > 0
     config.lr_config.warmup_iters = warmup_iters
     if is_epoch_based_runner(config.runner):
         init_num_iterations = config.runner.max_epochs

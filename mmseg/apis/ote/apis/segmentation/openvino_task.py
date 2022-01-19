@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions
 # and limitations under the License.
 
-import logging
 import json
 import os
 import tempfile
@@ -51,10 +50,11 @@ from compression.graph.model_utils import compress_model_weights, get_nodes_by_t
 from compression.pipeline.initializer import create_pipeline
 from ote_sdk.serialization.label_mapper import label_schema_to_bytes
 
+from mmseg.utils.logger import get_root_logger
 from .configuration import OTESegmentationConfig
 
 
-logger = logging.getLogger(__name__)
+logger = get_root_logger()
 
 
 def get_output(net, outputs, name):

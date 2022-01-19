@@ -1,0 +1,52 @@
+# Description.
+model_template_id: Custom_Semantic_Segmentation_Lite-HRNet-x-v3_OCR
+name: Lite-HRNet-x-v3 OCR
+task_type: SEGMENTATION
+task_family: VISION
+instantiation: "CLASS"
+summary: OCR with Lite-HRNet-x-v3 backbone.
+application:
+  ~
+
+# Algo backend.
+framework: OTESegmentation v0.14.0
+
+# Task implementations.
+entrypoints:
+  base: mmseg.apis.ote.apis.segmentation.OTESegmentationTask
+  openvino: mmseg.apis.ote.apis.segmentation.OpenVINOSegmentationTask
+
+# Capabilities.
+capabilities:
+  - compute_representations
+
+# Hyperparameters.
+hyper_parameters:
+  base_path: ../../../../mmseg/apis/ote/apis/segmentation/configuration.yaml
+  parameter_overrides:
+    learning_parameters:
+      batch_size:
+        default_value: 4
+      learning_rate:
+        default_value: 0.001
+      learning_rate_fixed_iters:
+        default_value: 0
+      learning_rate_warmup_iters:
+        default_value: 80
+      num_iters:
+        default_value: 180
+    pot_parameters:
+      preset:
+        default_value: Mixed
+      stat_subset_size:
+        default_value: 500
+
+# Training resources.
+max_nodes: 1
+training_targets:
+  - GPU
+  - CPU
+
+# Stats.
+gigaflops: 3.45
+size: 4.5

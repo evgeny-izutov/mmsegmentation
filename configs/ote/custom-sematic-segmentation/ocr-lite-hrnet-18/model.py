@@ -142,7 +142,7 @@ model = dict(
     ),
 )
 
-find_unused_parameters = True
+find_unused_parameters = False
 
 # optimizer
 optimizer = dict(
@@ -163,7 +163,7 @@ optimizer_config = dict(
 params_config = dict(
     type='FreezeLayers',
     by_epoch=True,
-    iters=40,
+    iters=0,
     open_layers=[r'backbone\.aggregator\.', r'neck\.', r'decode_head\.', r'auxiliary_head\.']
 )
 
@@ -174,7 +174,7 @@ lr_config = dict(
     by_epoch=True,
     step=[400, 500],
     fixed='constant',
-    fixed_iters=40,
+    fixed_iters=0,
     fixed_ratio=10.0,
     warmup='cos',
     warmup_iters=80,

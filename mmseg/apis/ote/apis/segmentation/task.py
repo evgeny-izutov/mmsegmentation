@@ -63,8 +63,9 @@ from mmseg.apis.ote.extension.utils.hooks import OTELoggerHook
 from mmseg.datasets import build_dataloader, build_dataset
 from mmseg.models import build_segmentor
 from mmseg.parallel import MMDataCPU
+from mmseg.utils.logger import get_root_logger
 
-logger = logging.getLogger(__name__)
+logger = get_root_logger()
 
 
 class OTESegmentationTask(ITrainingTask, IInferenceTask, IExportTask, IEvaluationTask, IUnload):
