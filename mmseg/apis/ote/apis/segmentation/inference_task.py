@@ -187,7 +187,6 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
         hook_handle = self._model.register_forward_hook(hook)
 
         self._infer_segmentor(self._model, self._config, dataset,
-                              output_logits=True, dump_features=True, add_predictions_to_dataset=True,
                               save_mask_visualization=not is_evaluation)
 
         pre_hook_handle.remove()
@@ -235,8 +234,6 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
 
     def _infer_segmentor(self,
                          model: torch.nn.Module, config: Config, dataset: DatasetEntity,
-                         output_logits: bool = False, dump_features: bool = True,
-                         add_predictions_to_dataset: bool = False,
                          save_mask_visualization: bool = False) -> None:
         model.eval()
 
@@ -266,19 +263,13 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
             nonlocal feature_vector
             feature_vector = feature_map.view(-1).detach().cpu().numpy()
 
-        def dummy_dump_features_hook(mod, inp, out):
-            pass
-
-        hook = dump_features_hook if dump_features else dummy_dump_features_hook
-
         # Use a single gpu for testing. Set in both mm_val_dataloader and eval_model
-        with eval_model.module.backbone.register_forward_hook(hook):
+        with eval_model.module.backbone.register_forward_hook(dump_features_hook):
             for data, dataset_item in zip(mm_val_dataloader, dataset):
                 with torch.no_grad():
-                    result = eval_model(return_loss=False, output_logits=output_logits, **data)
+                    result = eval_model(return_loss=False, output_logits=True, **data)
                 assert len(result) == 1
-                if add_predictions_to_dataset:
-                    self._add_predictions_to_dataset_item(result[0], feature_vector, dataset_item, save_mask_visualization=save_mask_visualization)
+                self._add_predictions_to_dataset_item(result[0], feature_vector, dataset_item, save_mask_visualization)
 
     def evaluate(self, output_result_set: ResultSetEntity, evaluation_metric: Optional[str] = None):
         """ Computes performance on a resultset """
