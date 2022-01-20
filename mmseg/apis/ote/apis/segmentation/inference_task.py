@@ -74,9 +74,7 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
 
         self._model_name = task_environment.model_template.name
         self._labels = task_environment.get_labels(include_empty=False)
-        self._label_dictionary = {
-            i + 1: self._labels[i] for i in range(len(self._labels))
-        }
+        self._label_dictionary = dict(enumerate(self._labels, 1))
 
         template_file_path = task_environment.model_template.model_template_path
 
