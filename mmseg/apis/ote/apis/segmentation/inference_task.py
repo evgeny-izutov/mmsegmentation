@@ -275,7 +275,7 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
 
         # Use a single gpu for testing. Set in both mm_val_dataloader and eval_model
         with eval_model.module.backbone.register_forward_hook(hook):
-            for i, (data, dataset_item) in enumerate(zip(mm_val_dataloader, dataset)):
+            for data, dataset_item in zip(mm_val_dataloader, dataset):
                 with torch.no_grad():
                     result = eval_model(return_loss=False, output_logits=output_logits, **data)
                 assert len(result) == 1
