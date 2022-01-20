@@ -28,7 +28,6 @@ from ote_sdk.entities.scored_label import ScoredLabel
 from ote_sdk.entities.shapes.polygon import Point, Polygon
 from ote_sdk.entities.subset import Subset
 
-from mmseg.core.evaluation.metrics import total_intersect_and_union
 from mmseg.datasets.builder import DATASETS
 from mmseg.datasets.custom import CustomDataset
 from mmseg.datasets.pipelines import Compose
