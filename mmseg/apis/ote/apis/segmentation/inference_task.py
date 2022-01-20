@@ -51,7 +51,6 @@ from mmseg.apis.ote.apis.segmentation.config_utils import (patch_config,
                                                            set_hyperparams)
 from mmseg.apis.ote.apis.segmentation.configuration import OTESegmentationConfig
 from mmseg.apis.ote.apis.segmentation.ote_utils import InferenceProgressCallback
-from mmseg.core.evaluation.metrics import f_score
 from mmseg.datasets import build_dataloader, build_dataset
 from mmseg.models import build_segmentor
 from mmseg.parallel import MMDataCPU
@@ -190,7 +189,7 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
         pre_hook_handle = self._model.register_forward_pre_hook(pre_hook)
         hook_handle = self._model.register_forward_hook(hook)
 
-        self._infer_segmentor(self._model, self._config, dataset, eval=False,
+        self._infer_segmentor(self._model, self._config, dataset,
                               output_logits=True, dump_features=True, add_predictions_to_dataset=True,
                               is_evaluation=is_evaluation)
 
@@ -198,7 +197,7 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
         hook_handle.remove()
 
         return dataset
-    
+
     def _add_predictions_to_dataset_item(self, prediction, feature_vector, dataset_item, is_evaluation):
         soft_prediction = np.transpose(prediction, axes=(1, 2, 0))
         hard_prediction = create_hard_prediction_from_soft_prediction(
@@ -239,10 +238,9 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
 
     def _infer_segmentor(self,
                          model: torch.nn.Module, config: Config, dataset: DatasetEntity,
-                         eval: Optional[bool] = False, metric_name: Optional[str] = 'mDice',
                          output_logits: bool = False, dump_features: bool = True,
                          add_predictions_to_dataset: bool = False,
-                         is_evaluation: bool = False) -> Optional[float]:
+                         is_evaluation: bool = False) -> None:
         model.eval()
 
         test_config = prepare_for_testing(config, dataset)
@@ -276,39 +274,14 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
 
         hook = dump_features_hook if dump_features else dummy_dump_features_hook
 
-        stats = defaultdict(float)
-            
         # Use a single gpu for testing. Set in both mm_val_dataloader and eval_model
         with eval_model.module.backbone.register_forward_hook(hook):
             for i, (data, dataset_item) in enumerate(zip(mm_val_dataloader, dataset)):
                 with torch.no_grad():
                     result = eval_model(return_loss=False, output_logits=output_logits, **data)
                 assert len(result) == 1
-                if eval:
-                    for k, v in mm_val_dataset.compute_stat_per_frame(result[0], frame_id=i).items():
-                        stats[k] += v
-
                 if add_predictions_to_dataset:
                     self._add_predictions_to_dataset_item(result[0], feature_vector, dataset_item, is_evaluation=is_evaluation)
-
-        metric = None
-        if eval:
-            assert not output_logits
-            if metric_name == 'mIoU':
-                metric = stats['total_area_intersect'] / stats['total_area_union']
-            elif metric_name == 'mDice':
-                metric = 2 * stats['total_area_intersect'] / (stats['total_area_pred_label'] + stats['total_area_label'])
-            elif metric_name == 'mFscore':
-                beta = 1
-                precision = stats['total_area_intersect'] / stats['total_area_pred_label']
-                recall = stats['total_area_intersect'] / stats['total_area_label']
-                metric = np.array([f_score(x[0], x[1], beta) for x in zip(precision, recall)])
-            else:
-                raise ValueError(f"Ivalid metric_name: {metric_name}")
-
-            metric = np.round(np.nanmean(metric) * 100.0, 2) / 100.0
-
-        return metric
 
     def evaluate(self, output_result_set: ResultSetEntity, evaluation_metric: Optional[str] = None):
         """ Computes performance on a resultset """

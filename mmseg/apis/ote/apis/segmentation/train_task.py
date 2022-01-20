@@ -58,11 +58,6 @@ class OTESegmentationTrainingTask(OTESegmentationInferenceTask, ITrainingTask):
         # Create new model if training from scratch.
         old_model = copy.deepcopy(self._model)
 
-        # Evaluate model performance before training.
-        # FIXME: This could be safely removed.
-        initial_performance = self._infer_segmentor(self._model, config, val_dataset, eval=True)
-        logger.info('INITIAL MODEL PERFORMANCE\n' + str(initial_performance))
-
         # Check for stop signal between pre-eval and training. If training is cancelled at this point,
         # old_model should be restored.
         if self._should_stop:
@@ -102,14 +97,10 @@ class OTESegmentationTrainingTask(OTESegmentationInferenceTask, ITrainingTask):
         best_checkpoint = torch.load(best_checkpoint_path)
         self._model.load_state_dict(best_checkpoint['state_dict'])
 
-        # Evaluate model performance after training.
-        final_performance = self._infer_segmentor(self._model, config, val_dataset, eval=True)
-
-        # Add mDice metric and loss curves
+        # Add loss curves
         training_metrics = self._generate_training_metrics_group(learning_curves)
-        performance = Performance(score=ScoreMetric(value=final_performance, name="mDice"),
+        performance = Performance(score=ScoreMetric(value=0, name="None"),
                                   dashboard_metrics=training_metrics)
-        logger.info('FINAL MODEL PERFORMANCE\n' + str(performance))
 
         self.save_model(output_model)
         output_model.performance = performance
