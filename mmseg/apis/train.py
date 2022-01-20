@@ -41,6 +41,9 @@ def set_random_seed(seed, deterministic=False):
 
 def needed_collect_dataset_stat(cfg):
     for head_type in ['decode_head', 'auxiliary_head']:
+        if not hasattr(cfg.model, head_type):
+            continue
+
         heads = cfg.model[head_type]
         if not isinstance(heads, (tuple, list)):
             heads = [heads]
@@ -133,7 +136,7 @@ def train_segmentor(model,
             len(cfg.gpu_ids),
             dist=distributed,
             seed=cfg.seed,
-            drop_last=False)
+            drop_last=True)
         for ds in dataset
     ]
 
