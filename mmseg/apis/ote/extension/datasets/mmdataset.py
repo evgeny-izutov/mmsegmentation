@@ -204,34 +204,7 @@ class OTEDataset(CustomDataset):
             gt_seg_maps.append(ann_info['gt_semantic_seg'])
 
         return gt_seg_maps
-    
-    
-    def compute_stat_per_frame(self, result, frame_id):
-        assert self.CLASSES
-        num_classes = len(self.CLASSES)
 
-        total_area_intersect, total_area_union, total_area_pred_label, total_area_label = total_intersect_and_union(
-            [result],
-            [self.get_ann_info(frame_id)['gt_semantic_seg']],
-            num_classes,
-            self.ignore_index,
-            self.label_map,
-            self.reduce_zero_label
-        )
-
-        ret_metrics = {}
-
-        ret_metrics['total_area_intersect'] = total_area_intersect
-        ret_metrics['total_area_union'] = total_area_union
-        ret_metrics['total_area_pred_label'] = total_area_pred_label
-        ret_metrics['total_area_label'] = total_area_label
-        
-        ret_metrics = {
-            metric: value.numpy()
-            for metric, value in ret_metrics.items()
-        }
-
-        return ret_metrics
 
 def get_classes_from_annotation(annot_path):
     with open(annot_path) as input_stream:

@@ -19,7 +19,6 @@ import os
 import shutil
 import tempfile
 import warnings
-from collections import defaultdict
 from typing import Optional
 
 import numpy as np
