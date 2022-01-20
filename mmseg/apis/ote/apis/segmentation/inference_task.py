@@ -190,14 +190,14 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
 
         self._infer_segmentor(self._model, self._config, dataset,
                               output_logits=True, dump_features=True, add_predictions_to_dataset=True,
-                              is_evaluation=is_evaluation)
+                              save_mask_visualization=not is_evaluation)
 
         pre_hook_handle.remove()
         hook_handle.remove()
 
         return dataset
 
-    def _add_predictions_to_dataset_item(self, prediction, feature_vector, dataset_item, is_evaluation):
+    def _add_predictions_to_dataset_item(self, prediction, feature_vector, dataset_item, save_mask_visualization):
         soft_prediction = np.transpose(prediction, axes=(1, 2, 0))
         hard_prediction = create_hard_prediction_from_soft_prediction(
             soft_prediction=soft_prediction,
@@ -215,7 +215,7 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
             active_score = TensorEntity(name="representation_vector", numpy=feature_vector)
             dataset_item.append_metadata_item(active_score, model=self._task_environment.model)
 
-        if not is_evaluation:
+        if save_mask_visualization:
             for label_index, label in self._label_dictionary.items():
                 if label_index == 0:
                     continue
@@ -239,7 +239,7 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
                          model: torch.nn.Module, config: Config, dataset: DatasetEntity,
                          output_logits: bool = False, dump_features: bool = True,
                          add_predictions_to_dataset: bool = False,
-                         is_evaluation: bool = False) -> None:
+                         save_mask_visualization: bool = False) -> None:
         model.eval()
 
         test_config = prepare_for_testing(config, dataset)
@@ -280,7 +280,7 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
                     result = eval_model(return_loss=False, output_logits=output_logits, **data)
                 assert len(result) == 1
                 if add_predictions_to_dataset:
-                    self._add_predictions_to_dataset_item(result[0], feature_vector, dataset_item, is_evaluation=is_evaluation)
+                    self._add_predictions_to_dataset_item(result[0], feature_vector, dataset_item, save_mask_visualization=save_mask_visualization)
 
     def evaluate(self, output_result_set: ResultSetEntity, evaluation_metric: Optional[str] = None):
         """ Computes performance on a resultset """
