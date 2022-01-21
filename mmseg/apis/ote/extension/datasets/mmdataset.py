@@ -320,9 +320,7 @@ def load_dataset_items(ann_file_path: str,
         check_labels(labels_list, annot_labels)
 
     test_mode = subset in {Subset.VALIDATION, Subset.TESTING}
-    pipeline = [dict(type='LoadImageFromFile'),
-                dict(type='Normalize', mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0], to_rgb=True),
-                dict(type='LoadAnnotations')]
+    pipeline = [dict(type='LoadAnnotations')]
     dataset = CustomDataset(img_dir=img_dir,
                             ann_dir=ann_dir,
                             pipeline=pipeline,
@@ -334,7 +332,8 @@ def load_dataset_items(ann_file_path: str,
     for item in dataset:
         annotations = create_annotation_from_hard_seg_map(hard_seg_map=item['gt_semantic_seg'],
                                                           labels=labels_list)
-        image = Image(data=item['img'])
+        filename = os.path.join(item['img_prefix'], item['img_info']['filename'])
+        image = Image(file_path=filename)
         annotation_scene = AnnotationSceneEntity(kind=AnnotationSceneKind.ANNOTATION,
                                                  annotations=annotations)
         dataset_items.append(DatasetItemEntity(media=image,
