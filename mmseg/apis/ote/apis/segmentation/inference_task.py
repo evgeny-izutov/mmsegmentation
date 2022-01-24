@@ -53,9 +53,9 @@ from mmseg.apis.ote.apis.segmentation.ote_utils import InferenceProgressCallback
 from mmseg.datasets import build_dataloader, build_dataset
 from mmseg.models import build_segmentor
 from mmseg.parallel import MMDataCPU
-from mmseg.utils.logger import get_root_logger
 
-logger = get_root_logger()
+
+logger = logging.getLogger(__name__)
 
 
 class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask, IUnload):

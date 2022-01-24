@@ -13,10 +13,10 @@
 # and limitations under the License.
 
 import argparse
+import logging
 import os.path as osp
 import sys
 
-from mmcv.utils import get_logger
 from ote_sdk.configuration.helper import create
 from ote_sdk.entities.datasets import DatasetEntity
 from ote_sdk.entities.inference_parameters import InferenceParameters
@@ -34,7 +34,7 @@ from mmseg.apis.ote.apis.segmentation.ote_utils import get_task_class
 from mmseg.apis.ote.extension.datasets.mmdataset import load_dataset_items
 
 
-logger = get_logger(name='sample')
+logger = logging.getLogger(__name__)
 
 
 def parse_args():
@@ -48,20 +48,19 @@ def parse_args():
 def main(args):
     logger.info('Initialize dataset')
     labels_list = []
-    subset_size = 50
     items = load_dataset_items(
-        ann_file_path=osp.join(args.data_dir, f'subset_{subset_size}_samples/annotations/training'),
-        data_root_dir=osp.join(args.data_dir, f'subset_{subset_size}_samples/images/training'),
+        ann_file_path=osp.join(args.data_dir, 'toy_dataset/annotations/training'),
+        data_root_dir=osp.join(args.data_dir, 'toy_dataset/images/training'),
         subset=Subset.TRAINING,
         labels_list=labels_list)
     items.extend(load_dataset_items(
-        ann_file_path=osp.join(args.data_dir, f'subset_{subset_size}_samples/annotations/validation'),
-        data_root_dir=osp.join(args.data_dir, f'subset_{subset_size}_samples/images/validation'),
+        ann_file_path=osp.join(args.data_dir, 'toy_dataset/annotations/validation'),
+        data_root_dir=osp.join(args.data_dir, 'toy_dataset/images/validation'),
         subset=Subset.VALIDATION,
         labels_list=labels_list))
     items.extend(load_dataset_items(
-        ann_file_path=osp.join(args.data_dir, f'subset_{subset_size}_samples/annotations/validation'),
-        data_root_dir=osp.join(args.data_dir, f'subset_{subset_size}_samples/images/validation'),
+        ann_file_path=osp.join(args.data_dir, 'toy_dataset/annotations/validation'),
+        data_root_dir=osp.join(args.data_dir, 'toy_dataset/images/validation'),
         subset=Subset.TESTING,
         labels_list=labels_list))
     dataset = DatasetEntity(items=items)
@@ -77,9 +76,9 @@ def main(args):
     logger.info('Set hyperparameters')
 
     params = create(model_template.hyper_parameters.data)
-    # params.learning_parameters.learning_rate_fixed_iters = 0
-    # params.learning_parameters.learning_rate_warmup_iters = 30
-    # params.learning_parameters.num_iters = 30
+    params.learning_parameters.learning_rate_fixed_iters = 0
+    params.learning_parameters.learning_rate_warmup_iters = 30
+    params.learning_parameters.num_iters = 30
     logger.info('Setup environment')
     environment = TaskEnvironment(model=None, hyper_parameters=params, label_schema=labels_schema, model_template=model_template)
 

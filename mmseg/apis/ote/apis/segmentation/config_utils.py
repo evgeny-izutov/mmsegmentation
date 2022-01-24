@@ -15,6 +15,7 @@
 
 import copy
 import glob
+import logging
 import math
 import os
 import tempfile
@@ -26,11 +27,10 @@ from ote_sdk.entities.datasets import DatasetEntity
 from ote_sdk.entities.label import LabelEntity
 from ote_sdk.usecases.reporting.time_monitor_callback import TimeMonitorCallback
 
-from mmseg.utils.logger import get_root_logger
 from .configuration import OTESegmentationConfig
 
 
-logger = get_root_logger()
+logger = logging.getLogger(__name__)
 
 
 def is_epoch_based_runner(runner_config: ConfigDict):
