@@ -4,7 +4,7 @@ name: Lite-HRNet-18 OCR
 task_type: SEGMENTATION
 task_family: VISION
 instantiation: "CLASS"
-summary: OCR with Lite-HRNet-18 backbone.
+summary: Lightweight architecture which based on the Lite-HRNet backbone with OCR head for the fast inference and training on the limited amount of data.
 application:
   ~
 
