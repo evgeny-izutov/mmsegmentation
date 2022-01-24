@@ -1,10 +1,10 @@
 # Description.
-model_template_id: Custom_Semantic_Segmentation_Lite-HRNet-18_OCR
-name: Lite-HRNet-18 OCR
+model_template_id: Custom_Semantic_Segmentation_Lite-HRNet-x-mod3_OCR
+name: Lite-HRNet-x-mod3 OCR
 task_type: SEGMENTATION
 task_family: VISION
 instantiation: "CLASS"
-summary: Lightweight architecture which based on the Lite-HRNet backbone with OCR head for the fast inference and training on the limited amount of data.
+summary: Heavy-size architecture which based on the Lite-HRNet backbone with OCR head for the accurate predictions but long training.
 application:
   ~
 
@@ -27,7 +27,7 @@ hyper_parameters:
   parameter_overrides:
     learning_parameters:
       batch_size:
-        default_value: 8
+        default_value: 5
       learning_rate:
         default_value: 0.001
       learning_rate_fixed_iters:
