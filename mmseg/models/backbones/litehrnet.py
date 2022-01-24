@@ -1,3 +1,6 @@
+# Copyright (C) 2021 Dong Huang
+# SPDX-License-Identifier: Apache-2.0
+#
 # Copyright (c) 2018-2020 Open-MMLab.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -5,7 +8,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-# The original repo: https://github.com/HRNet/Lite-HRNet
+"""Modified from: https://github.com/HRNet/Lite-HRNet"""
+
 
 import mmcv
 import torch

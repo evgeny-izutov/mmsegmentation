@@ -1,3 +1,13 @@
+# Copyright (C) 2020 Litao Yu
+# SPDX-License-Identifier: MIT
+#
+# Copyright (C) 2021 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+
+"""Modified from: https://github.com/yutao1008/margin_calibration"""
+
+
 import torch
 import torch.nn.functional as F
 
@@ -8,7 +18,6 @@ from .pixel_base import BasePixelLoss
 @LOSSES.register_module()
 class MarginCalibrationLoss(BasePixelLoss):
     """Computes the Margin Calibration loss: https://arxiv.org/abs/2112.11554
-       Original code: https://github.com/yutao1008/margin_calibration
     """
 
     def __init__(self, **kwargs):

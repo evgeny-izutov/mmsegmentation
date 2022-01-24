@@ -1,9 +1,15 @@
+# Copyright (c) 2020 Litao Yu
+# SPDX-License-Identifier: MIT
+#
 # Copyright (c) 2020-2021 The MMSegmentation Authors
 # SPDX-License-Identifier: Apache-2.0
 #
 # Copyright (C) 2021 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 #
+
+"""Modified from: https://github.com/yutao1008/margin_calibration"""
+
 
 import random
 import warnings
