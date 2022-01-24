@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions
 # and limitations under the License.
 
-import logging
 import math
 import os
 from collections import defaultdict
@@ -21,8 +20,9 @@ from mmcv.runner.hooks import HOOKS, Hook, LoggerHook
 from mmcv.runner import BaseRunner, EpochBasedRunner
 from mmcv.runner.dist_utils import master_only
 
+from mmseg.utils.logger import get_root_logger
 
-logger = logging.getLogger(__name__)
+logger = get_root_logger()
 
 
 @HOOKS.register_module()

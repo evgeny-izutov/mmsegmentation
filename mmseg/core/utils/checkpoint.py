@@ -88,6 +88,14 @@ def load_state_dict(module, in_state, class_maps=None, strict=False, logger=None
                 converted_pairs.append([name, list(out_param.size())])
 
     missing_keys = list(set(own_state.keys()) - set(in_state.keys()))
+    if ignore_keys is not None:
+        filtered_missing_keys = []
+        for missing_key in missing_keys:
+            ignored = any(re.match(ignore_key, missing_key) for ignore_key in ignore_keys)
+            if not ignored:
+                filtered_missing_keys.append(missing_key)
+
+        missing_keys = filtered_missing_keys
 
     err_msg = []
     if unexpected_keys:

@@ -1,7 +1,8 @@
 # pre-trained params settings
-ignore_keys = [r'^backbone\.increase_modules\.', r'^backbone\.increase_modules\.',
-               r'^backbone\.downsample_modules\.', r'^backbone\.final_layer\.',
-               r'^head\.']
+ignore_keys = [r'^backbone\.increase_modules\.', r'^backbone\.downsample_modules\.',
+               r'^backbone\.final_layer\.', r'^backbone\.aggregator\.',
+               r'^backbone\.out_modules\.', r'^head\.', r'^decode_head\.',
+               r'^auxiliary_head\.']
 
 # model settings
 norm_cfg = dict(type='SyncBN', requires_grad=True)
@@ -23,6 +24,7 @@ model = dict(
             ),
             num_stages=3,
             stages_spec=dict(
+                weighting_module_version='v1',
                 num_modules=(2, 4, 2),
                 num_branches=(2, 3, 4),
                 num_blocks=(2, 2, 2),

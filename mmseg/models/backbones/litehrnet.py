@@ -12,15 +12,92 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.checkpoint as cp
-from mmcv.cnn import (ConvModule, DepthwiseSeparableConvModule,
-                      build_conv_layer, build_norm_layer, constant_init, normal_init)
+from mmcv.cnn import ConvModule, build_conv_layer, build_norm_layer, constant_init, normal_init
 from mmcv.runner import load_checkpoint
 from mmcv.utils.parrots_wrapper import _BatchNorm
 
 from mmseg.utils import get_root_logger
-from mmseg.models.utils import channel_shuffle, LocalAttentionModule, AsymmetricPositionAttentionModule
+from mmseg.models.utils import (channel_shuffle,
+                                LocalAttentionModule,
+                                AsymmetricPositionAttentionModule,
+                                IterativeAggregator)
 from ..builder import BACKBONES
 from .resnet import BasicBlock, Bottleneck
+
+
+class NeighbourSupport(nn.Module):
+    def __init__(self, channels, kernel_size=3, key_ratio=8, value_ratio=8, conv_cfg=None, norm_cfg=None):
+        super().__init__()
+
+        self.in_channels = channels
+        self.key_channels = int(channels / key_ratio)
+        self.value_channels = int(channels / value_ratio)
+        self.kernel_size = kernel_size
+
+        self.key = nn.Sequential(
+            ConvModule(
+                in_channels=self.in_channels,
+                out_channels=self.key_channels,
+                kernel_size=1,
+                stride=1,
+                conv_cfg=conv_cfg,
+                norm_cfg=norm_cfg,
+                act_cfg=dict(type='ReLU')),
+            ConvModule(
+                self.key_channels,
+                self.key_channels,
+                kernel_size=self.kernel_size,
+                stride=1,
+                padding=(self.kernel_size - 1) // 2,
+                groups=self.key_channels,
+                conv_cfg=conv_cfg,
+                norm_cfg=norm_cfg,
+                act_cfg=None),
+            ConvModule(
+                in_channels=self.key_channels,
+                out_channels=self.kernel_size * self.kernel_size,
+                kernel_size=1,
+                stride=1,
+                conv_cfg=conv_cfg,
+                norm_cfg=norm_cfg,
+                act_cfg=None)
+        )
+        self.value = nn.Sequential(
+            ConvModule(
+                in_channels=self.in_channels,
+                out_channels=self.value_channels,
+                kernel_size=1,
+                stride=1,
+                conv_cfg=conv_cfg,
+                norm_cfg=norm_cfg,
+                act_cfg=None),
+            nn.Unfold(kernel_size=self.kernel_size,
+                      stride=1,
+                      padding=1)
+        )
+        self.out_conv = ConvModule(
+            in_channels=self.value_channels,
+            out_channels=self.in_channels,
+            kernel_size=1,
+            stride=1,
+            conv_cfg=conv_cfg,
+            norm_cfg=norm_cfg,
+            act_cfg=None
+        )
+
+    def forward(self, x):
+        h, w = [int(_) for _ in x.size()[-2:]]
+
+        key = self.key(x).view(-1, 1, self.kernel_size ** 2, h, w)
+        weights = torch.softmax(key, dim=2)
+
+        value = self.value(x).view(-1, self.value_channels, self.kernel_size ** 2, h, w)
+        y = torch.sum(weights * value, dim=2)
+        y = self.out_conv(y)
+
+        out = x + y
+
+        return out
 
 
 class CrossResolutionWeighting(nn.Module):
@@ -73,79 +150,13 @@ class CrossResolutionWeighting(nn.Module):
         return out
 
 
-class CrossResolutionWeightingV2(nn.Module):
-    """The original repo: https://github.com/DeLightCMU/PSA
-    """
-
-    def __init__(self,
-                 channels,
-                 ratio=16,
-                 conv_cfg=None,
-                 norm_cfg=None):
-        super().__init__()
-
-        self.channels = channels
-        self.total_channel = sum(channels)
-        self.internal_channels = int(self.total_channel / ratio)
-
-        self.v_conv = ConvModule(
-            in_channels=self.total_channel,
-            out_channels=self.internal_channels,
-            kernel_size=1,
-            stride=1,
-            bias=False,
-            conv_cfg=conv_cfg,
-            norm_cfg=None,
-            act_cfg=None)
-        self.q_conv = ConvModule(
-            in_channels=self.total_channel,
-            out_channels=1,
-            kernel_size=1,
-            stride=1,
-            bias=False,
-            conv_cfg=conv_cfg,
-            norm_cfg=None,
-            act_cfg=None)
-        self.out_conv = ConvModule(
-            in_channels=self.internal_channels,
-            out_channels=self.total_channel,
-            kernel_size=1,
-            stride=1,
-            conv_cfg=conv_cfg,
-            norm_cfg=norm_cfg,
-            act_cfg=dict(type='Sigmoid'))
-
-    def forward(self, x):
-        min_size = [int(_) for _ in x[-1].size()[-2:]]
-
-        downscaled_x = [F.adaptive_avg_pool2d(s, min_size) for s in x[:-1]] + [x[-1]]
-        y = torch.cat(downscaled_x, dim=1)
-        h, w = y.size()[-2:]
-
-        v = self.v_conv(y).view(-1, self.internal_channels, h * w)
-
-        q = self.q_conv(y).view(-1, h * w, 1)
-        q = torch.softmax(q, dim=1)
-
-        y = torch.matmul(v, q)
-        y = y.view(-1, self.internal_channels, 1, 1)
-        y = self.out_conv(y)
-
-        out = torch.split(y, self.channels, dim=1)
-        out = [
-            s * F.interpolate(a, size=s.size()[-2:], mode='nearest')
-            for s, a in zip(x, out)
-        ]
-
-        return out
-
-
 class SpatialWeighting(nn.Module):
     def __init__(self,
                  channels,
                  ratio=16,
                  conv_cfg=None,
-                 act_cfg=(dict(type='ReLU'), dict(type='Sigmoid'))):
+                 act_cfg=(dict(type='ReLU'), dict(type='Sigmoid')),
+                 **kwargs):
         super().__init__()
 
         if isinstance(act_cfg, dict):
@@ -184,39 +195,87 @@ class SpatialWeightingV2(nn.Module):
     def __init__(self,
                  channels,
                  ratio=16,
-                 conv_cfg=None):
+                 conv_cfg=None,
+                 norm_cfg=None,
+                 enable_norm=False,
+                 **kwargs):
         super().__init__()
 
         self.in_channels = channels
         self.internal_channels = int(channels / ratio)
 
-        self.v_conv = ConvModule(
+        # channel-only branch
+        self.v_channel = ConvModule(
             in_channels=self.in_channels,
             out_channels=self.internal_channels,
             kernel_size=1,
             stride=1,
             bias=False,
             conv_cfg=conv_cfg,
-            norm_cfg=None,
+            norm_cfg=norm_cfg if enable_norm else None,
             act_cfg=None)
-        self.q_conv = ConvModule(
+        self.q_channel = ConvModule(
+            in_channels=self.in_channels,
+            out_channels=1,
+            kernel_size=1,
+            stride=1,
+            bias=False,
+            conv_cfg=conv_cfg,
+            norm_cfg=norm_cfg if enable_norm else None,
+            act_cfg=None)
+        self.out_channel = ConvModule(
+            in_channels=self.internal_channels,
+            out_channels=self.in_channels,
+            kernel_size=1,
+            stride=1,
+            conv_cfg=conv_cfg,
+            norm_cfg=norm_cfg,
+            act_cfg=dict(type='Sigmoid'))
+
+        # spatial-only branch
+        self.v_spatial = ConvModule(
             in_channels=self.in_channels,
             out_channels=self.internal_channels,
             kernel_size=1,
             stride=1,
             bias=False,
             conv_cfg=conv_cfg,
-            norm_cfg=None,
+            norm_cfg=norm_cfg if enable_norm else None,
+            act_cfg=None)
+        self.q_spatial = ConvModule(
+            in_channels=self.in_channels,
+            out_channels=self.internal_channels,
+            kernel_size=1,
+            stride=1,
+            bias=False,
+            conv_cfg=conv_cfg,
+            norm_cfg=norm_cfg if enable_norm else None,
             act_cfg=None)
         self.global_avgpool = nn.AdaptiveAvgPool2d(1)
 
-    def forward(self, x):
-        h, w = x.size()[-2:]
+    def _channel_weighting(self, x):
+        h, w = [int(_) for _ in x.size()[-2:]]
 
-        v = self.v_conv(x)
+        v = self.v_channel(x).view(-1, self.internal_channels, h * w)
+
+        q = self.q_channel(x).view(-1, h * w, 1)
+        q = torch.softmax(q, dim=1)
+
+        y = torch.matmul(v, q)
+        y = y.view(-1, self.internal_channels, 1, 1)
+        y = self.out_channel(y)
+
+        out = x * y
+
+        return out
+
+    def _spatial_weighting(self, x):
+        h, w = [int(_) for _ in x.size()[-2:]]
+
+        v = self.v_spatial(x)
         v = v.view(-1, self.internal_channels, h * w)
 
-        q = self.q_conv(x).view(-1, h * w, 1)
+        q = self.q_spatial(x)
         q = self.global_avgpool(q)
         q = torch.softmax(q, dim=1)
         q = q.view(-1, 1, self.internal_channels)
@@ -226,6 +285,13 @@ class SpatialWeightingV2(nn.Module):
         y = torch.sigmoid(y)
 
         out = x * y
+
+        return out
+
+    def forward(self, x):
+        y_channel = self._channel_weighting(x)
+        y_spatial = self._spatial_weighting(x)
+        out = y_channel + y_spatial
 
         return out
 
@@ -239,20 +305,19 @@ class ConditionalChannelWeighting(nn.Module):
                  norm_cfg=dict(type='BN'),
                  with_cp=False,
                  dropout=None,
-                 cr_version='v1',
-                 sw_version='v1'):
+                 weighting_module_version='v1',
+                 neighbour_weighting=False,
+                 dw_ksize=3):
         super().__init__()
 
         self.with_cp = with_cp
         self.stride = stride
         assert stride in [1, 2]
 
-        cross_resolution_module = CrossResolutionWeighting if cr_version == 'v1' else CrossResolutionWeightingV2
-        spatial_weighting_module = SpatialWeighting if sw_version == 'v1' else SpatialWeightingV2
-
+        spatial_weighting_module = SpatialWeighting if weighting_module_version == 'v1' else SpatialWeightingV2
         branch_channels = [channel // 2 for channel in in_channels]
 
-        self.cross_resolution_weighting = cross_resolution_module(
+        self.cross_resolution_weighting = CrossResolutionWeighting(
             branch_channels,
             ratio=reduce_ratio,
             conv_cfg=conv_cfg,
@@ -262,9 +327,9 @@ class ConditionalChannelWeighting(nn.Module):
             ConvModule(
                 channel,
                 channel,
-                kernel_size=3,
+                kernel_size=dw_ksize,
                 stride=self.stride,
-                padding=1,
+                padding=dw_ksize // 2,
                 groups=channel,
                 conv_cfg=conv_cfg,
                 norm_cfg=norm_cfg,
@@ -272,9 +337,27 @@ class ConditionalChannelWeighting(nn.Module):
             for channel in branch_channels
         ])
         self.spatial_weighting = nn.ModuleList([
-            spatial_weighting_module(channels=channel, ratio=4)
+            spatial_weighting_module(
+                channels=channel,
+                ratio=4,
+                conv_cfg=conv_cfg,
+                norm_cfg=norm_cfg,
+                enable_norm=True)
             for channel in branch_channels
         ])
+
+        self.neighbour_weighting = None
+        if neighbour_weighting:
+            self.neighbour_weighting = nn.ModuleList([
+                NeighbourSupport(
+                    channel,
+                    kernel_size=3,
+                    key_ratio=8,
+                    value_ratio=4,
+                    conv_cfg=conv_cfg,
+                    norm_cfg=norm_cfg)
+                for channel in branch_channels
+            ])
 
         self.dropout = None
         if dropout is not None and dropout > 0:
@@ -290,6 +373,10 @@ class ConditionalChannelWeighting(nn.Module):
 
         x2 = self.cross_resolution_weighting(x2)
         x2 = [dw(s) for s, dw in zip(x2, self.depthwise_convs)]
+
+        if self.neighbour_weighting is not None:
+            x2 = [nw(s) for s, nw in zip(x2, self.neighbour_weighting)]
+
         x2 = [sw(s) for s, sw in zip(x2, self.spatial_weighting)]
 
         if self.dropout is not None:
@@ -452,56 +539,147 @@ class Stem(nn.Module):
         return out
 
 
-class IterativeAggregator(nn.Module):
-    def __init__(self, in_channels, conv_cfg=None, norm_cfg=dict(type='BN')):
+class StemV2(nn.Module):
+    def __init__(self,
+                 in_channels,
+                 stem_channels,
+                 out_channels,
+                 expand_ratio,
+                 conv_cfg=None,
+                 norm_cfg=dict(type='BN'),
+                 with_cp=False,
+                 num_stages=1,
+                 strides=(2, 2),
+                 extra_stride=False,
+                 input_norm=False):
         super().__init__()
 
-        num_branches = len(in_channels)
-        self.in_channels = in_channels[::-1]
+        assert num_stages > 0
+        assert isinstance(strides, (tuple, list))
+        assert len(strides) == 1 + num_stages
 
-        projects = []
-        for i in range(num_branches):
-            if i != num_branches - 1:
-                out_channels = self.in_channels[i + 1]
-            else:
-                out_channels = self.in_channels[i]
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.conv_cfg = conv_cfg
+        self.norm_cfg = norm_cfg
+        self.with_cp = with_cp
+        self.num_stages = num_stages
 
-            projects.append(DepthwiseSeparableConvModule(
-                in_channels=self.in_channels[i],
-                out_channels=out_channels,
+        self.input_norm = None
+        if input_norm:
+            self.input_norm = nn.InstanceNorm2d(in_channels)
+
+        self.conv1 = ConvModule(
+            in_channels=in_channels,
+            out_channels=stem_channels,
+            kernel_size=3,
+            stride=strides[0],
+            padding=1,
+            conv_cfg=self.conv_cfg,
+            norm_cfg=self.norm_cfg,
+            act_cfg=dict(type='ReLU')
+        )
+
+        self.conv2 = None
+        if extra_stride:
+            self.conv2 = ConvModule(
+                in_channels=stem_channels,
+                out_channels=stem_channels,
                 kernel_size=3,
-                stride=1,
+                stride=2,
                 padding=1,
-                conv_cfg=conv_cfg,
-                norm_cfg=norm_cfg,
-                act_cfg=dict(type='ReLU'),
-                dw_act_cfg=None,
-                pw_act_cfg=dict(type='ReLU')
+                conv_cfg=self.conv_cfg,
+                norm_cfg=self.norm_cfg,
+                act_cfg=dict(type='ReLU')
+            )
+
+        mid_channels = int(round(stem_channels * expand_ratio))
+        internal_branch_channels = stem_channels // 2
+        out_branch_channels = self.out_channels // 2
+
+        self.branch1, self.branch2 = nn.ModuleList(), nn.ModuleList()
+        for stage in range(1, num_stages + 1):
+            self.branch1.append(nn.Sequential(
+                ConvModule(
+                    internal_branch_channels,
+                    internal_branch_channels,
+                    kernel_size=3,
+                    stride=strides[stage],
+                    padding=1,
+                    groups=internal_branch_channels,
+                    conv_cfg=conv_cfg,
+                    norm_cfg=norm_cfg,
+                    act_cfg=None),
+                ConvModule(
+                    internal_branch_channels,
+                    out_branch_channels if stage == num_stages else internal_branch_channels,
+                    kernel_size=1,
+                    stride=1,
+                    padding=0,
+                    conv_cfg=conv_cfg,
+                    norm_cfg=norm_cfg,
+                    act_cfg=dict(type='ReLU')),
             ))
 
-        self.projects = nn.ModuleList(projects)
+            self.branch2.append(nn.Sequential(
+                ConvModule(
+                    internal_branch_channels,
+                    mid_channels,
+                    kernel_size=1,
+                    stride=1,
+                    padding=0,
+                    conv_cfg=conv_cfg,
+                    norm_cfg=norm_cfg,
+                    act_cfg=dict(type='ReLU')),
+                ConvModule(
+                    mid_channels,
+                    mid_channels,
+                    kernel_size=3,
+                    stride=strides[stage],
+                    padding=1,
+                    groups=mid_channels,
+                    conv_cfg=conv_cfg,
+                    norm_cfg=norm_cfg,
+                    act_cfg=None),
+                ConvModule(
+                    mid_channels,
+                    out_branch_channels if stage == num_stages else internal_branch_channels,
+                    kernel_size=1,
+                    stride=1,
+                    padding=0,
+                    conv_cfg=conv_cfg,
+                    norm_cfg=norm_cfg,
+                    act_cfg=dict(type='ReLU'))
+            ))
+
+    def _inner_forward(self, x):
+        if self.input_norm is not None:
+            x = self.input_norm(x)
+
+        y = self.conv1(x)
+        if self.conv2 is not None:
+            y = self.conv2(y)
+
+        out_list = [y]
+        for stage in range(self.num_stages):
+            y1, y2 = y.chunk(2, dim=1)
+
+            y1 = self.branch1[stage](y1)
+            y2 = self.branch2[stage](y2)
+
+            y = torch.cat((y1, y2), dim=1)
+            y = channel_shuffle(y, 2)
+            out_list.append(y)
+
+        return out_list
 
     def forward(self, x):
-        x = x[::-1]
+        if self.with_cp and x.requires_grad:
+            out = cp.checkpoint(self._inner_forward, x)
+        else:
+            out = self._inner_forward(x)
 
-        y_list = []
-        last_x = None
-        for i, s in enumerate(x):
-            if last_x is not None:
-                last_x = F.interpolate(
-                    last_x,
-                    size=s.size()[-2:],
-                    mode='bilinear',
-                    align_corners=True
-                )
-                s = s + last_x
-
-            s = self.projects[i](s)
-            last_x = s
-
-            y_list.append(s)
-
-        return y_list[::-1]
+        return out
 
 
 class ShuffleUnit(nn.Module):
@@ -631,7 +809,9 @@ class LiteHRModule(nn.Module):
             conv_cfg=None,
             norm_cfg=dict(type='BN'),
             with_cp=False,
-            dropout=None
+            dropout=None,
+            weighting_module_version='v1',
+            neighbour_weighting=False
     ):
         super().__init__()
         self._check_branches(num_branches, in_channels)
@@ -645,6 +825,8 @@ class LiteHRModule(nn.Module):
         self.norm_cfg = norm_cfg
         self.conv_cfg = conv_cfg
         self.with_cp = with_cp
+        self.weighting_module_version = weighting_module_version
+        self.neighbour_weighting = neighbour_weighting
 
         if self.module_type == 'LITE':
             self.layers = self._make_weighting_blocks(num_blocks, reduce_ratio, dropout=dropout)
@@ -673,7 +855,9 @@ class LiteHRModule(nn.Module):
                 conv_cfg=self.conv_cfg,
                 norm_cfg=self.norm_cfg,
                 with_cp=self.with_cp,
-                dropout=dropout
+                dropout=dropout,
+                weighting_module_version=self.weighting_module_version,
+                neighbour_weighting=self.neighbour_weighting
             ))
 
         return nn.Sequential(*layers)
@@ -739,9 +923,6 @@ class LiteHRModule(nn.Module):
                         build_norm_layer(
                             self.norm_cfg,
                             in_channels[i])[1],
-                        # nn.Upsample(
-                        #     scale_factor=2**(j - i),
-                        #     mode='nearest')
                     ))
                 elif j == i:
                     fuse_layer.append(None)
@@ -833,7 +1014,9 @@ class LiteHRModule(nn.Module):
                         fuse_y = F.interpolate(fuse_y, size=y.size()[-2:], mode='nearest')
 
                     y += fuse_y
+
                 out_fuse.append(self.relu(y))
+
             out = out_fuse
         elif not self.multiscale_output:
             out = [out[0]]
@@ -891,6 +1074,10 @@ class LiteHRNet(nn.Module):
             conv_cfg=self.conv_cfg,
             norm_cfg=self.norm_cfg
         )
+
+        self.enable_stem_pool = self.extra['stem'].get('out_pool', False)
+        if self.enable_stem_pool:
+            self.stem_pool = nn.AvgPool2d(kernel_size=3, stride=2)
 
         self.num_stages = self.extra['num_stages']
         self.stages_spec = self.extra['stages_spec']
@@ -950,10 +1137,37 @@ class LiteHRNet(nn.Module):
                 self.out_modules = nn.Sequential(*out_modules)
                 num_channels_last.append(in_modules_channels)
 
+        self.add_stem_features = self.extra.get('add_stem_features', False)
+        if self.add_stem_features:
+            self.stem_transition = nn.Sequential(
+                ConvModule(
+                    self.stem.out_channels,
+                    self.stem.out_channels,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    groups=self.stem.out_channels,
+                    conv_cfg=conv_cfg,
+                    norm_cfg=norm_cfg,
+                    act_cfg=None),
+                ConvModule(
+                    self.stem.out_channels,
+                    num_channels_last[0],
+                    kernel_size=1,
+                    stride=1,
+                    padding=0,
+                    conv_cfg=conv_cfg,
+                    norm_cfg=norm_cfg,
+                    act_cfg=dict(type='ReLU')),
+            )
+
+            num_channels_last = [num_channels_last[0]] + num_channels_last
+
         self.with_aggregator = self.extra.get('out_aggregator') and self.extra['out_aggregator']['enable']
         if self.with_aggregator:
             self.aggregator = IterativeAggregator(
                 in_channels=num_channels_last,
+                min_channels=self.extra['out_aggregator'].get('min_channels', None),
                 conv_cfg=self.conv_cfg,
                 norm_cfg=self.norm_cfg
             )
@@ -1039,6 +1253,8 @@ class LiteHRNet(nn.Module):
         reduce_ratio = stages_spec['reduce_ratios'][stage_index]
         with_fuse = stages_spec['with_fuse'][stage_index]
         module_type = stages_spec['module_type'][stage_index]
+        weighting_module_version = stages_spec.get('weighting_module_version', 'v1')
+        neighbour_weighting = stages_spec.get('neighbour_weighting', False)
 
         modules = []
         for i in range(num_modules):
@@ -1059,7 +1275,9 @@ class LiteHRNet(nn.Module):
                 conv_cfg=self.conv_cfg,
                 norm_cfg=self.norm_cfg,
                 with_cp=self.with_cp,
-                dropout=dropout
+                dropout=dropout,
+                weighting_module_version=weighting_module_version,
+                neighbour_weighting=neighbour_weighting
             ))
             in_channels = modules[-1].in_channels
 
@@ -1095,27 +1313,37 @@ class LiteHRNet(nn.Module):
     def forward(self, x):
         """Forward function."""
 
-        y = self.stem(x)
+        stem_outputs = self.stem(x)
+        y_x2 = y_x4 = stem_outputs
+        # y_x2, y_x4 = stem_outputs[-2:]
+        y = y_x4
+
+        if self.enable_stem_pool:
+            y = self.stem_pool(y)
 
         y_list = [y]
         for i in range(self.num_stages):
             transition_modules = getattr(self, 'transition{}'.format(i))
 
-            x_list = []
+            stage_inputs = []
             for j in range(self.stages_spec['num_branches'][i]):
                 if transition_modules[j]:
                     if j >= len(y_list):
-                        x_list.append(transition_modules[j](y_list[-1]))
+                        stage_inputs.append(transition_modules[j](y_list[-1]))
                     else:
-                        x_list.append(transition_modules[j](y_list[j]))
+                        stage_inputs.append(transition_modules[j](y_list[j]))
                 else:
-                    x_list.append(y_list[j])
+                    stage_inputs.append(y_list[j])
 
             stage_module = getattr(self, 'stage{}'.format(i))
-            y_list = stage_module(x_list)
+            y_list = stage_module(stage_inputs)
 
         if self.out_modules is not None:
             y_list.append(self.out_modules(y_list[-1]))
+
+        if self.add_stem_features:
+            y_stem = self.stem_transition(y_x2)
+            y_list = [y_stem] + y_list
 
         out = y_list
         if self.with_aggregator:

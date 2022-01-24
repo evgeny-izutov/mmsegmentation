@@ -7,12 +7,13 @@
 
 from .accuracy import Accuracy, accuracy
 from .cross_entropy_loss import CrossEntropyLoss, binary_cross_entropy, cross_entropy, mask_cross_entropy
-from .dice_loss import DiceLoss
 from .lovasz_loss import LovaszLoss
-from .tversky_loss import TverskyLoss
+from .generalized_dice_loss import GeneralizedDiceLoss
 from .boundary_loss import BoundaryLoss
 from .am_softmax import AMSoftmaxLoss
-from .utils import reduce_loss, weight_reduce_loss, weighted_loss
+from .mutual_loss import MutualLoss
+from .margin_calibration import MarginCalibrationLoss
+from .utils import reduce_loss, weight_reduce_loss, weighted_loss, LossEqualizer
 
 __all__ = [
     'accuracy',
@@ -25,8 +26,10 @@ __all__ = [
     'weight_reduce_loss',
     'weighted_loss',
     'LovaszLoss',
-    'DiceLoss',
-    'TverskyLoss',
+    'GeneralizedDiceLoss',
     'BoundaryLoss',
     'AMSoftmaxLoss',
+    'MutualLoss',
+    'MarginCalibrationLoss',
+    'LossEqualizer',
 ]

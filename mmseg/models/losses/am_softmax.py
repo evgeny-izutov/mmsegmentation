@@ -53,15 +53,15 @@ class AMSoftmaxLoss(BasePixelLoss):
         one_hot_mask = self._one_hot_mask(target, num_classes)
         output = torch.where(one_hot_mask, phi_theta, cos_theta)
 
-        if self.gamma == 0 and self.t == 1.0:
-            out_losses = self.target_loss(scale * output, target)
-        elif self.t > 1.0:
+        if self.t > 1.0:
             h_theta = self.t - 1 + self.t * cos_theta
             support_vectors_mask = (~one_hot_mask) * \
                 torch.lt(torch.masked_select(phi_theta, one_hot_mask).view(-1, 1).repeat(1, h_theta.shape[1]) - cos_theta, 0)
             output = torch.where(support_vectors_mask, h_theta, output)
-            out_losses = self.target_loss(scale * output, target)
-        else:
-            out_losses = focal_loss(self.target_loss(scale * output, target), self.gamma)
+
+        out_losses = self.target_loss(scale * output, target)
+
+        if self.gamma > 0.0:
+            out_losses = focal_loss(out_losses, self.gamma)
 
         return out_losses, output

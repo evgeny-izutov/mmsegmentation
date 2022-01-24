@@ -8,6 +8,7 @@
 import torch
 import torch.nn.functional as F
 
+from mmseg.core import focal_loss
 from ..builder import LOSSES
 from .utils import get_class_weight
 from .pixel_base import BasePixelLoss
@@ -145,12 +146,15 @@ class CrossEntropyLoss(BasePixelLoss):
                  use_sigmoid=False,
                  use_mask=False,
                  class_weight=None,
+                 gamma=0.0,
                  **kwargs):
         super(CrossEntropyLoss, self).__init__(**kwargs)
 
         self.use_sigmoid = use_sigmoid
         self.use_mask = use_mask
         self.class_weight = get_class_weight(class_weight)
+        assert gamma >= 0.0
+        self.gamma = gamma
 
         assert (use_sigmoid is False) or (use_mask is False)
         if self.use_sigmoid:
@@ -169,11 +173,14 @@ class CrossEntropyLoss(BasePixelLoss):
         if self.class_weight is not None:
             class_weight = cls_score.new_tensor(self.class_weight)
 
-        loss = self.cls_criterion(
+        out_losses = self.cls_criterion(
             scale * cls_score,
             label,
             class_weight=class_weight,
             ignore_index=self.ignore_index
         )
 
-        return loss, cls_score
+        if self.gamma > 0.0:
+            out_losses = focal_loss(out_losses, self.gamma)
+
+        return out_losses, cls_score

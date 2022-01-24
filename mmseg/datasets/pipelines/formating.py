@@ -215,15 +215,13 @@ class DefaultFormatBundle(object):
 
             results[target] = DC(to_tensor(img), stack=True)
 
-        if 'gt_semantic_seg' in results:
-            results['gt_semantic_seg'] = DC(
-                to_tensor(results['gt_semantic_seg'][None, ...].astype(np.int64)),
-                stack=True
-            )
+        for trg_name in ['gt_semantic_seg', 'gt_class_borders', 'pixel_weights']:
+            if trg_name not in results:
+                continue
 
-        if 'pixel_weights' in results:
-            results['pixel_weights'] = DC(
-                to_tensor(results['pixel_weights'][None, ...].astype(np.float32)),
+            out_type = np.float32 if trg_name == 'pixel_weights' else np.int64
+            results[trg_name] = DC(
+                to_tensor(results[trg_name][None, ...].astype(out_type)),
                 stack=True
             )
 
