@@ -322,14 +322,17 @@ def set_num_classes(config: Config, num_classes: int):
     assert num_classes > 1
 
     for head_type in ('decode_head', 'auxiliary_head'):
-        head = config.model.get(head_type, None)
-        if head is None:
+        heads = config.model.get(head_type, None)
+        if heads is None:
             continue
 
-        if isinstance(head, (tuple, list)):
-            for sub_head in head:
-                sub_head.num_classes = num_classes
-        else:
+        if not isinstance(heads, (tuple, list)):
+            heads = [heads]
+
+        for head in heads:
+            if hasattr(head, 'loss_target') and head.loss_target == 'gt_class_borders':
+                continue
+
             head.num_classes = num_classes
 
 
