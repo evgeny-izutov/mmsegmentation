@@ -17,7 +17,6 @@ from .enc_head import EncHead
 from .fcn_head import FCNHead
 from .fpn_head import FPNHead
 from .gc_head import GCHead
-from .ic_head import ICHead
 from .lraspp_head import LRASPPHead
 from .nl_head import NLHead
 from .ocr_head import OCRHead, AuxOCRHead
@@ -32,7 +31,6 @@ from .bise_head import BiSeHead
 from .shelf_head import ShelfHead
 from .hyperseg_head import HyperSegHead
 from .memory_head import MemoryHead
-from .hamburger_head import HamburgerHead
 from .sptaial_gather_fcn_head import SpatialGatherFCNHead
 
 __all__ = [
@@ -58,12 +56,10 @@ __all__ = [
     'APCHead',
     'DMHead',
     'LRASPPHead',
-    'ICHead',
     'DDRHead',
     'BiSeHead',
     'ShelfHead',
     'HyperSegHead',
     'MemoryHead',
-    'HamburgerHead',
     'SpatialGatherFCNHead',
 ]
