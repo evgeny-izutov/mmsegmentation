@@ -285,11 +285,9 @@ def add_labels(cur_labels, new_labels):
             raise ValueError("Found multiple matching labels")
         elif len(matching_labels) == 0:
             label_id = label_id if label_id is not None else len(cur_labels)
-            if isinstance(label_id, ID) is False:
-                label_id = ID(str(label_id))
             label = LabelEntity(name=label_name,
                                 domain=Domain.SEGMENTATION,
-                                id=label_id)
+                                id=ID(label_id))
             cur_labels.append(label)
 
 
