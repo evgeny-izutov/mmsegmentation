@@ -40,7 +40,6 @@ from ote_sdk.usecases.tasks.interfaces.optimization_interface import Optimizatio
 from ote_sdk.usecases.tasks.interfaces.optimization_interface import OptimizationType
 
 from mmseg.apis import train_segmentor
-from mmseg.apis.fake_input import get_fake_input
 from mmseg.apis.ote.apis.segmentation import OTESegmentationInferenceTask
 from mmseg.apis.ote.apis.segmentation.config_utils import prepare_for_training
 from mmseg.apis.ote.apis.segmentation.configuration import OTESegmentationConfig
@@ -124,8 +123,7 @@ class OTESegmentationNNCFTask(OTESegmentationInferenceTask, IOptimizationTask):
                     compression_ctrl, model = wrap_nncf_model(
                         model,
                         self._config,
-                        init_state_dict=model_data,
-                        get_fake_input_func=get_fake_input
+                        init_state_dict=model_data
                     )
                     logger.info("Loaded model weights from Task Environment and wrapped by NNCF")
                 else:
