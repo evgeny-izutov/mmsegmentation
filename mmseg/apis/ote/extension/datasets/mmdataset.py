@@ -287,7 +287,7 @@ def add_labels(cur_labels, new_labels):
             label_id = label_id if label_id is not None else len(cur_labels)
             label = LabelEntity(name=label_name,
                                 domain=Domain.SEGMENTATION,
-                                id=ID(label_id))
+                                id=ID(f"{label_id:08}"))
             cur_labels.append(label)
 
 
