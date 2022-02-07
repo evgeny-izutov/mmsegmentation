@@ -11,7 +11,7 @@ from mmcv.runner.utils import get_host_info
 from .utils import check_nncf_is_enabled
 
 
-@RUNNERS.register_module()
+@RUNNERS.register_module(force=True)
 class AccuracyAwareRunner(EpochBasedRunner):
     """
     An mmdet training runner to be used with NNCF-based accuracy-aware training.
