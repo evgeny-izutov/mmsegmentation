@@ -15,6 +15,7 @@
 
 import importlib
 import yaml
+import time
 
 from ote_sdk.entities.train_parameters import UpdateProgressCallback
 from ote_sdk.usecases.reporting.time_monitor_callback import TimeMonitorCallback
@@ -39,6 +40,18 @@ class TrainingProgressCallback(TimeMonitorCallback):
     def on_train_batch_end(self, batch, logs=None):
         super().on_train_batch_end(batch, logs)
         self.update_progress_callback(self.get_progress())
+
+    def on_epoch_end(self, epoch, logs=None):
+        self.past_epoch_duration.append(time.time() - self.start_epoch_time)
+        self._calculate_average_epoch()
+        score = None
+        if hasattr(self.update_progress_callback, 'metric') and isinstance(logs, dict):
+            score = logs.get(self.update_progress_callback.metric, None)
+
+        if score is not None:
+            self.update_progress_callback(self.get_progress(), score=float(score))
+        else:
+            self.update_progress_callback(int(self.get_progress()))
 
 
 class InferenceProgressCallback(TimeMonitorCallback):
