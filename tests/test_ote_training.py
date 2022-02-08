@@ -135,7 +135,8 @@ class TestOTEReallifeSegmentation(OTETrainingTestInterface):
 
     @pytest.fixture
     def params_factories_for_test_actions_fx(self, current_test_parameters_fx,
-                                             dataset_definitions_fx, template_paths_fx) -> Dict[str,Callable[[], Dict]]:
+                                             dataset_definitions_fx, template_paths_fx,
+                                             ote_current_reference_dir_fx) -> Dict[str,Callable[[], Dict]]:
         logger.debug('params_factories_for_test_actions_fx: begin')
 
         test_parameters = deepcopy(current_test_parameters_fx)
@@ -167,6 +168,7 @@ class TestOTEReallifeSegmentation(OTETrainingTestInterface):
                 'template_path': template_path,
                 'num_training_iters': num_training_iters,
                 'batch_size': batch_size,
+                'reference_dir': ote_current_reference_dir_fx,
             }
 
         params_factories_for_test_actions = {
