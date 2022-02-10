@@ -58,7 +58,7 @@ class CascadeEncoderDecoder(EncoderDecoder):
             decode_head.set_step_params(init_iter, epoch_size)
 
         if self.auxiliary_head is not None:
-            if isinstance(self.auxiliary_head, list):
+            if isinstance(self.auxiliary_head, nn.ModuleList):
                 for aux_head in self.auxiliary_head:
                     aux_head.set_step_params(init_iter, epoch_size)
             else:
@@ -105,25 +105,35 @@ class CascadeEncoderDecoder(EncoderDecoder):
 
         return out
 
-    def _decode_head_forward_train(self, x, img_metas, gt_semantic_seg, pixel_weights=None):
+    def _decode_head_forward_train(self, x, img_metas, pixel_weights=None, **kwargs):
         """Run forward function and calculate loss for decode head in
         training."""
 
-        losses = dict()
+        losses, meta = dict(), dict()
 
-        loss_decode = self.decode_head[0].forward_train(
-            x, img_metas, gt_semantic_seg, self.train_cfg, pixel_weights
+        trg_map = self._get_argument_by_name(self.decode_head[0].loss_target_name, kwargs)
+        loss_decode, prev_logits = self.decode_head[0].forward_train(
+            x, img_metas, trg_map, self.train_cfg, pixel_weights
         )
-        losses.update(add_prefix(loss_decode, 'decode_0'))
+
+        prev_scale = self.decode_head[0].last_scale
+        prev_scaled_logits = prev_scale * prev_logits
+
+        name_prefix = 'decode_0'
+        losses.update(add_prefix(loss_decode, name_prefix))
+        meta[f'{name_prefix}_scaled_logits'] = prev_scaled_logits
 
         for i in range(1, self.num_stages):
-            prev_scale = self.decode_head[i - 1].last_scale
-            prev_logits = self.decode_head[i - 1].forward_test(x, img_metas, self.test_cfg)
-
-            prev_scaled_logits = prev_scale * prev_logits
-            loss_decode = self.decode_head[i].forward_train(
-                x, prev_scaled_logits, img_metas, gt_semantic_seg, self.train_cfg, pixel_weights
+            trg_map = self._get_argument_by_name(self.decode_head[i].loss_target_name, kwargs)
+            loss_decode, prev_logits = self.decode_head[i].forward_train(
+                x, prev_scaled_logits, img_metas, trg_map, self.train_cfg, pixel_weights
             )
-            losses.update(add_prefix(loss_decode, f'decode_{i}'))
 
-        return losses
+            prev_scale = self.decode_head[i].last_scale
+            prev_scaled_logits = prev_scale * prev_logits
+
+            name_prefix = f'decode_{i}'
+            losses.update(add_prefix(loss_decode, name_prefix))
+            meta[f'{name_prefix}_scaled_logits'] = prev_scaled_logits
+
+        return losses, meta

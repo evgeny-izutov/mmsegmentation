@@ -54,6 +54,7 @@ from mmseg.datasets import build_dataloader, build_dataset
 from mmseg.models import build_segmentor
 from mmseg.parallel import MMDataCPU
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -216,6 +217,7 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
             for label_index, label in self._label_dictionary.items():
                 if label_index == 0:
                     continue
+
                 if len(soft_prediction.shape) == 3:
                     current_label_soft_prediction = soft_prediction[:, :, label_index]
                 else:
@@ -224,12 +226,13 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
                 max_soft_score = np.max(current_label_soft_prediction)
                 factor = 255.0 / (max_soft_score - min_soft_score + 1e-12)
                 result_media_numpy = (factor * (current_label_soft_prediction - min_soft_score)).astype(np.uint8)
+
                 result_media = ResultMediaEntity(name=f'{label.name}',
-                                                type='Soft Prediction',
-                                                label=label,
-                                                annotation_scene=dataset_item.annotation_scene,
-                                                roi=dataset_item.roi,
-                                                numpy=result_media_numpy)
+                                                 type='Soft Prediction',
+                                                 label=label,
+                                                 annotation_scene=dataset_item.annotation_scene,
+                                                 roi=dataset_item.roi,
+                                                 numpy=result_media_numpy)
                 dataset_item.append_metadata_item(result_media, model=self._task_environment.model)
 
     def _infer_segmentor(self,
@@ -253,15 +256,20 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
         else:
             eval_model = MMDataCPU(model)
 
-        feature_vector = None
+        out_feature_vector = None
 
         def dump_features_hook(mod, inp, out):
             with torch.no_grad():
-                feature_map = out[0]
-                feature_map = torch.nn.functional.adaptive_avg_pool2d(feature_map, (1, 1))
-                assert feature_map.size(0) == 1
-            nonlocal feature_vector
-            feature_vector = feature_map.view(-1).detach().cpu().numpy()
+                if len(out) == 1:
+                    feature_vector = torch.nn.functional.adaptive_avg_pool2d(out[0], (1, 1))
+                else:
+                    pooled_features = [torch.nn.functional.adaptive_avg_pool2d(fea_map, (1, 1))
+                                       for fea_map in out]
+                    feature_vector = torch.cat(pooled_features, dim=1)
+                assert feature_vector.size(0) == 1
+
+            nonlocal out_feature_vector
+            out_feature_vector = feature_vector.view(-1).detach().cpu().numpy()
 
         # Use a single gpu for testing. Set in both mm_val_dataloader and eval_model
         with eval_model.module.backbone.register_forward_hook(dump_features_hook):
@@ -269,7 +277,8 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
                 with torch.no_grad():
                     result = eval_model(return_loss=False, output_logits=True, **data)
                 assert len(result) == 1
-                self._add_predictions_to_dataset_item(result[0], feature_vector, dataset_item, save_mask_visualization)
+
+                self._add_predictions_to_dataset_item(result[0], out_feature_vector, dataset_item, save_mask_visualization)
 
     def evaluate(self, output_result_set: ResultSetEntity, evaluation_metric: Optional[str] = None):
         """ Computes performance on a resultset """

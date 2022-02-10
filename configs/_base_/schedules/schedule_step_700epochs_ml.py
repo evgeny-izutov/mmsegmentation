@@ -49,3 +49,5 @@ evaluation = dict(
     interval=20,
     metric='mIoU'
 )
+
+find_unused_parameters = True

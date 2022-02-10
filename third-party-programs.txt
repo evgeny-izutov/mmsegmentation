@@ -113,3 +113,15 @@ terms are listed below.
 17. STDCNet
     Copyright (c) 2021 Mingyuan Fan
     SPDX-License-Identifier: MIT
+
+-------------------------------------------------------------
+
+18. Margin Calibration loss
+    Copyright (c) 2020 Litao Yu
+    SPDX-License-Identifier: MIT
+
+-------------------------------------------------------------
+
+19. Polarized Self-Attention
+    Copyright (c) 2021 Dong Huang
+    SPDX-License-Identifier: Apache-2.0
