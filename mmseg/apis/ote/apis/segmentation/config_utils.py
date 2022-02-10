@@ -183,7 +183,7 @@ def patch_adaptive_repeat_dataset(config: Config, num_samples: int, decay: float
     init_max_epoch = config.runner.max_epochs
     new_repeat_times = max(round(math.exp(-decay * num_samples) * factor), 1)
     new_max_epoch = math.ceil(init_max_epoch / new_repeat_times)
-    if new_max_epoch == 1:
+    if new_max_epoch <= 1:
         return
 
     # set proper number of iterations
