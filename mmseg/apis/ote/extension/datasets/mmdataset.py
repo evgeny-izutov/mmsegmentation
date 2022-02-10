@@ -229,7 +229,8 @@ def create_annotation_from_hard_seg_map(hard_seg_map: np.ndarray, labels: List[L
 
     annotations: List[Annotation] = []
     for label_id in unique_labels:
-        matches = [label for label in labels if label.id == label_id]
+        label_id_entity = ID(f"{label_id:08}")
+        matches = [label for label in labels if label.id == label_id_entity]
         if len(matches) == 0:
             continue
 
