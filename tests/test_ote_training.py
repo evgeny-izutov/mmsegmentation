@@ -12,17 +12,14 @@
 # See the License for the specific language governing permissions
 # and limitations under the License.
 
-import glob
 import logging
 import os
-import os.path as osp
 from collections import namedtuple
 from copy import deepcopy
 from pprint import pformat
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Type
 
 import pytest
-import yaml
 from ote_sdk.entities.datasets import DatasetEntity
 from ote_sdk.entities.label_schema import LabelSchemaEntity
 from ote_sdk.entities.subset import Subset
@@ -30,6 +27,11 @@ from ote_sdk.entities.subset import Subset
 from mmseg.apis.ote.extension.datasets.mmdataset import load_dataset_items
 
 from ote_sdk.test_suite.e2e_test_system import DataCollector, e2e_pytest_performance
+from ote_sdk.test_suite.training_tests_actions import (BaseOTETestAction,
+                                                       OTETestNNCFGraphAction,
+                                                       get_default_test_action_classes)
+from ote_sdk.test_suite.training_test_case import (OTETestCaseInterface,
+                                                   generate_ote_integration_test_case_class)
 from ote_sdk.test_suite.training_tests_common import (make_path_be_abs,
                                                       make_paths_be_abs,
                                                       KEEP_CONFIG_FIELD_VALUE,
@@ -96,7 +98,36 @@ def _create_segmentation_dataset_and_labels_schema(dataset_params):
     return dataset, labels_schema
 
 
+class SegmentationTestNNCFGraphAction(OTETestNNCFGraphAction):
+
+    def _get_compressed_model(self, task):
+        # pylint:disable=protected-access
+        from mmseg.integration.nncf.compression import wrap_nncf_model
+
+        # Disable quantaizers initialization
+        for compression in task._config.nncf_config['compression']:
+            if compression["algorithm"] == "quantization":
+                compression["initializer"] = {
+                    "batchnorm_adaptation": {
+                        "num_bn_adaptation_samples": 0
+                    }
+                }
+
+        _, compressed_model = wrap_nncf_model(task._model, task._config)
+        return compressed_model
+
+
+def get_segmentation_test_action_classes() -> List[Type[BaseOTETestAction]]:
+    return get_default_test_action_classes() + [SegmentationTestNNCFGraphAction]
+
+
 class SegmentationTrainingTestParameters(DefaultOTETestCreationParametersInterface):
+
+    def test_case_class(self) -> Type[OTETestCaseInterface]:
+        return generate_ote_integration_test_case_class(
+            get_segmentation_test_action_classes()
+        )
+
     def test_bunches(self) -> List[Dict[str, Any]]:
         test_bunches = [
                 dict(
@@ -117,6 +148,7 @@ class SegmentationTrainingTestParameters(DefaultOTETestCreationParametersInterfa
                 ),
         ]
         return deepcopy(test_bunches)
+
 
 class TestOTEReallifeSegmentation(OTETrainingTestInterface):
     """
@@ -168,11 +200,36 @@ class TestOTEReallifeSegmentation(OTETrainingTestInterface):
                 'template_path': template_path,
                 'num_training_iters': num_training_iters,
                 'batch_size': batch_size,
+            }
+
+        def _nncf_graph_params_factory() -> Dict:
+            if dataset_definitions is None:
+                pytest.skip('The parameter "--dataset-definitions" is not set')
+
+            model_name = test_parameters['model_name']
+            dataset_name = test_parameters['dataset_name']
+
+            dataset_params = _get_dataset_params_from_dataset_definitions(dataset_definitions, dataset_name)
+
+            if model_name not in template_paths:
+                raise ValueError(f'Model {model_name} is absent in template_paths, '
+                                 f'template_paths.keys={list(template_paths.keys())}')
+            template_path = make_path_be_abs(template_paths[model_name], template_paths[ROOT_PATH_KEY])
+
+            logger.debug('training params factory: Before creating dataset and labels_schema')
+            dataset, labels_schema = _create_segmentation_dataset_and_labels_schema(dataset_params)
+            logger.debug('training params factory: After creating dataset and labels_schema')
+
+            return {
+                'dataset': dataset,
+                'labels_schema': labels_schema,
+                'template_path': template_path,
                 'reference_dir': ote_current_reference_dir_fx,
             }
 
         params_factories_for_test_actions = {
-            'training': _training_params_factory
+            'training': _training_params_factory,
+            'nncf_graph': _nncf_graph_params_factory,
         }
         logger.debug('params_factories_for_test_actions_fx: end')
         return params_factories_for_test_actions
