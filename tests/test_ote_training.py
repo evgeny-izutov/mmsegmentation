@@ -27,11 +27,6 @@ from ote_sdk.entities.subset import Subset
 from mmseg.apis.ote.extension.datasets.mmdataset import load_dataset_items
 
 from ote_sdk.test_suite.e2e_test_system import DataCollector, e2e_pytest_performance
-from ote_sdk.test_suite.training_tests_actions import (BaseOTETestAction,
-                                                       OTETestNNCFGraphAction,
-                                                       get_default_test_action_classes)
-from ote_sdk.test_suite.training_test_case import (OTETestCaseInterface,
-                                                   generate_ote_integration_test_case_class)
 from ote_sdk.test_suite.training_tests_common import (make_path_be_abs,
                                                       make_paths_be_abs,
                                                       KEEP_CONFIG_FIELD_VALUE,
