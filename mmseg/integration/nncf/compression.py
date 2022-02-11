@@ -196,8 +196,9 @@ def wrap_nncf_model(model,
         checkpoint_path = None
 
     if not dataloader_for_init and not checkpoint_path and not init_state_dict:
-        raise RuntimeError('Either dataloader_for_init or NNCF pre-trained '
-                           'model checkpoint should be set')
+        logger.warning('Either dataloader_for_init or NNCF pre-trained '
+                       'model checkpoint should be set. Without this, '
+                       'quantizers will not be initialized')
 
     if checkpoint_path:
         logger.info(f'Loading NNCF checkpoint from {checkpoint_path}')
