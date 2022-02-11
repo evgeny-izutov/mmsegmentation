@@ -98,35 +98,7 @@ def _create_segmentation_dataset_and_labels_schema(dataset_params):
     return dataset, labels_schema
 
 
-class SegmentationTestNNCFGraphAction(OTETestNNCFGraphAction):
-
-    def _get_compressed_model(self, task):
-        # pylint:disable=protected-access
-        from mmseg.integration.nncf.compression import wrap_nncf_model
-
-        # Disable quantaizers initialization
-        for compression in task._config.nncf_config['compression']:
-            if compression["algorithm"] == "quantization":
-                compression["initializer"] = {
-                    "batchnorm_adaptation": {
-                        "num_bn_adaptation_samples": 0
-                    }
-                }
-
-        _, compressed_model = wrap_nncf_model(task._model, task._config)
-        return compressed_model
-
-
-def get_segmentation_test_action_classes() -> List[Type[BaseOTETestAction]]:
-    return get_default_test_action_classes() + [SegmentationTestNNCFGraphAction]
-
-
 class SegmentationTrainingTestParameters(DefaultOTETestCreationParametersInterface):
-
-    def test_case_class(self) -> Type[OTETestCaseInterface]:
-        return generate_ote_integration_test_case_class(
-            get_segmentation_test_action_classes()
-        )
 
     def test_bunches(self) -> List[Dict[str, Any]]:
         test_bunches = [
@@ -149,6 +121,24 @@ class SegmentationTrainingTestParameters(DefaultOTETestCreationParametersInterfa
         ]
         return deepcopy(test_bunches)
 
+def get_dummy_compressed_model(self, task):
+    """
+    Return compressed model without initialization
+    """
+    # pylint:disable=protected-access
+    from mmseg.integration.nncf.compression import wrap_nncf_model
+
+    # Disable quantaizers initialization
+    for compression in task._config.nncf_config['compression']:
+        if compression["algorithm"] == "quantization":
+            compression["initializer"] = {
+                "batchnorm_adaptation": {
+                    "num_bn_adaptation_samples": 0
+                }
+            }
+
+    _, compressed_model = wrap_nncf_model(task._model, task._config)
+    return compressed_model
 
 class TestOTEReallifeSegmentation(OTETrainingTestInterface):
     """
@@ -225,6 +215,7 @@ class TestOTEReallifeSegmentation(OTETrainingTestInterface):
                 'labels_schema': labels_schema,
                 'template_path': template_path,
                 'reference_dir': ote_current_reference_dir_fx,
+                'fn_get_compressed_model': get_dummy_compressed_model,
             }
 
         params_factories_for_test_actions = {
