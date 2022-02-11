@@ -116,7 +116,7 @@ class SegmentationTrainingTestParameters(DefaultOTETestCreationParametersInterfa
         ]
         return deepcopy(test_bunches)
 
-def get_dummy_compressed_model(self, task):
+def get_dummy_compressed_model(task):
     """
     Return compressed model without initialization
     """
