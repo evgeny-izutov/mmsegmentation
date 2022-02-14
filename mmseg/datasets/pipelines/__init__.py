@@ -13,7 +13,7 @@ from .test_time_aug import MultiScaleFlipAug
 from .transforms import (CLAHE, AdjustGamma, Normalize, Pad,
                          PhotoMetricDistortion, RandomCrop, RandomFlip,
                          RandomRotate, Rerange, Resize, RGB2Gray, SegRescale,
-                         CrossNorm, MixUp, BorderWeighting, Empty)
+                         CrossNorm, MixUp, ClassBordersExtractor, ClassBordersWeighting, Empty)
 
 __all__ = [
     'Compose',
@@ -42,6 +42,7 @@ __all__ = [
     'RGB2Gray',
     'CrossNorm',
     'MixUp',
-    'BorderWeighting',
+    'ClassBordersExtractor',
+    'ClassBordersWeighting',
     'Empty',
 ]

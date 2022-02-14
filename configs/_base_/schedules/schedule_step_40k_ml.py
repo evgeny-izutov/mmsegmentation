@@ -3,12 +3,10 @@ optimizer = dict(
     type='SGD',
     lr=1e-3,
     momentum=0.9,
-    weight_decay=0.0005
+    weight_decay=0.0005,
 )
 optimizer_config = dict(
     grad_clip=dict(
-        # method='adaptive',
-        # clip=0.2,
         method='default',
         max_norm=40,
         norm_type=2
@@ -20,7 +18,6 @@ params_config = dict(
     type='FreezeLayers',
     by_epoch=False,
     iters=2000,
-    # open_layers=[r'neck\.', r'decode_head\.', r'auxiliary_head\.']
     open_layers=[r'backbone\.aggregator\.', r'neck\.', r'decode_head\.', r'auxiliary_head\.']
 )
 
@@ -51,3 +48,5 @@ evaluation = dict(
     interval=1000,
     metric='mIoU'
 )
+
+find_unused_parameters = True

@@ -7,8 +7,6 @@ optimizer = dict(
 )
 optimizer_config = dict(
     grad_clip=dict(
-        # method='adaptive',
-        # clip=0.2,
         method='default',
         max_norm=40,
         norm_type=2
@@ -50,3 +48,5 @@ evaluation = dict(
     interval=1000,
     metric='mIoU'
 )
+
+find_unused_parameters = True

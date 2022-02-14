@@ -1,10 +1,14 @@
-_base_ = [
-    '../_base_/models/fcn_litehr18.py', '../_base_/datasets/cityscapes.py',
-    '../_base_/default_runtime.py', '../_base_/schedules/schedule_cos_160k.py'
-]
+# pre-trained params settings
+ignore_keys = [r'^backbone\.increase_modules\.', r'^backbone\.downsample_modules\.',
+               r'^backbone\.final_layer\.', r'^backbone\.aggregator\.',
+               r'^backbone\.out_modules\.', r'^head\.', r'^decode_head\.',
+               r'^auxiliary_head\.']
 
+# model settings
 norm_cfg = dict(type='SyncBN', requires_grad=True)
 model = dict(
+    type='EncoderDecoder',
+    pretrained=None,
     backbone=dict(
         type='LiteHRNet',
         norm_cfg=norm_cfg,
@@ -20,6 +24,8 @@ model = dict(
             ),
             num_stages=3,
             stages_spec=dict(
+                neighbour_weighting=True,
+                weighting_module_version='v1',
                 num_modules=(2, 4, 2),
                 num_branches=(2, 3, 4),
                 num_blocks=(2, 2, 2),
@@ -34,17 +40,17 @@ model = dict(
             ),
             out_modules=dict(
                 conv=dict(
-                    enable=True,
-                    channels=576
+                    enable=False,
+                    channels=320
                 ),
                 position_att=dict(
-                    enable=True,
+                    enable=False,
                     key_channels=128,
                     value_channels=320,
                     psp_size=(1, 3, 6, 8),
                 ),
                 local_att=dict(
-                    enable=True
+                    enable=False
                 )
             ),
             out_aggregator=dict(
@@ -52,5 +58,28 @@ model = dict(
             ),
             add_input=False
         )
-    )
+    ),
+    decode_head=dict(
+        type='FCNHead',
+        in_channels=40,
+        in_index=0,
+        channels=40,
+        input_transform=None,
+        kernel_size=1,
+        num_convs=0,
+        concat_input=False,
+        dropout_ratio=-1,
+        num_classes=19,
+        norm_cfg=norm_cfg,
+        align_corners=False,
+        loss_decode=dict(
+            type='CrossEntropyLoss',
+            use_sigmoid=False,
+            sampler=dict(type='MaxPoolingPixelSampler', ratio=0.25, p=1.7),
+            loss_weight=1.0
+        )
+    ),
+    # model training and testing settings
+    train_cfg=dict(),
+    test_cfg=dict(mode='whole')
 )

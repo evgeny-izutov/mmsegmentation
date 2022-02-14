@@ -43,7 +43,7 @@ class BaseCascadeDecodeHead(BaseDecodeHead, metaclass=ABCMeta):
         seg_logits = self.forward(inputs, prev_output)
         losses = self.losses(seg_logits, gt_semantic_seg, train_cfg, pixel_weights)
 
-        return losses
+        return losses, seg_logits
 
     def forward_test(self, inputs, prev_output, img_metas, test_cfg):
         """Forward function for testing.

@@ -22,9 +22,9 @@ runner = dict(
 )
 checkpoint_config = dict(
     by_epoch=False,
-    interval=4000
+    interval=1000
 )
 evaluation = dict(
-    interval=4000,
+    interval=1000,
     metric='mIoU'
 )

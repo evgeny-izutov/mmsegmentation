@@ -51,7 +51,7 @@ model = dict(
                       ),
                       margin_type='cos',
                       margin=0.5,
-                      gamma=0.0,
+                      gamma=2.0,
                       t=1.0,
                       target_loss='ce',
                       pr_product=False,

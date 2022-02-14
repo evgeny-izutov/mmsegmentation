@@ -120,6 +120,7 @@ def set_hyperparams(config: Config, hyperparams: OTESegmentationConfig):
 
     config.params_config.iters = fixed_iters
     config.lr_config.fixed_iters = fixed_iters
+    config.find_unused_parameters = fixed_iters > 0
     config.lr_config.warmup_iters = warmup_iters
     if is_epoch_based_runner(config.runner):
         init_num_iterations = config.runner.max_epochs
@@ -321,14 +322,17 @@ def set_num_classes(config: Config, num_classes: int):
     assert num_classes > 1
 
     for head_type in ('decode_head', 'auxiliary_head'):
-        head = config.model.get(head_type, None)
-        if head is None:
+        heads = config.model.get(head_type, None)
+        if heads is None:
             continue
 
-        if isinstance(head, (tuple, list)):
-            for sub_head in head:
-                sub_head.num_classes = num_classes
-        else:
+        if not isinstance(heads, (tuple, list)):
+            heads = [heads]
+
+        for head in heads:
+            if hasattr(head, 'loss_target') and head.loss_target == 'gt_class_borders':
+                continue
+
             head.num_classes = num_classes
 
 

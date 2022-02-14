@@ -80,6 +80,9 @@ class FCNHead(BaseDecodeHead):
             out_channels,
             **kwargs
         )
+    
+    def process_logits(self, logits, features):
+        return logits
 
     def forward(self, inputs):
         """Forward function."""
@@ -91,5 +94,6 @@ class FCNHead(BaseDecodeHead):
             y = self.conv_cat(torch.cat([x, y], dim=1))
 
         logits = self.cls_seg(y)
+        logits = self.process_logits(logits, y)
 
         return logits

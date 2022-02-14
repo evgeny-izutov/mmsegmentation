@@ -13,7 +13,7 @@ from mmcv.cnn import ConvModule, DepthwiseSeparableConvModule
 from mmseg.ops import resize
 from ..builder import HEADS
 from ..utils import SelfAttentionBlock as _SelfAttentionBlock
-from .cascade_decode_head import BaseCascadeDecodeHead
+from .cascade_decode_head import BaseDecodeHead, BaseCascadeDecodeHead
 
 
 class SpatialGatherModule(nn.Module):
@@ -36,12 +36,63 @@ class SpatialGatherModule(nn.Module):
         channels = feats.size(1)
 
         prev_logits = prev_logits.view(batch_size, num_classes, -1)
-        feats = feats.view(batch_size, channels, -1)
-
-        feats = feats.permute(0, 2, 1)  # [batch_size, height*width, channels]
         probs = F.softmax(self.scale * prev_logits, dim=2)  # [batch_size, num_classes, height*width]
 
+        feats = feats.view(batch_size, channels, -1)
+        feats = feats.permute(0, 2, 1)  # [batch_size, height*width, channels]
+
         out_context = torch.matmul(probs, feats)  # [batch_size, num_classes, channels]
+        out_context = out_context.permute(0, 2, 1).contiguous().unsqueeze(3)  # [batch_size, channels, num_classes, 1]
+
+        return out_context
+
+
+class AuxSpatialGatherModule(nn.Module):
+    """Aggregate the context features according to the initial predicted
+    probability distribution.
+
+    Employ the soft-weighted method to aggregate the context.
+    """
+
+    def __init__(self, num_classes, ignore_index=255):
+        super(AuxSpatialGatherModule, self).__init__()
+
+        self.num_classes = num_classes
+        assert self.num_classes > 0
+        self.ignore_index = ignore_index
+
+    def forward(self, feats, gt_seg_map):
+        """Forward function."""
+
+        batch_size = feats.size(0)
+        channels = feats.size(1)
+
+        with torch.no_grad():
+            target = gt_seg_map.view(batch_size, -1)  # [batch_size, height*width]
+            valid_mask = target != self.ignore_index  # [batch_size, height*width]
+
+            one_hot_target = F.one_hot(
+                torch.clamp(target.long(), 0, self.num_classes - 1),
+                num_classes=self.num_classes
+            )
+            weights = one_hot_target.permute(0, 2, 1).float()  # [batch_size, num_classes, height*width]
+            weights = torch.where(valid_mask.unsqueeze(1), weights, torch.zeros_like(weights))
+
+            sum_weights = torch.sum(weights, dim=2, keepdim=True)
+            weights = torch.where(sum_weights > 0.0, weights, torch.ones_like(weights))
+            weights = weights / torch.sum(weights, dim=2, keepdim=True)  # [batch_size, num_classes, height*width]
+
+            gt_height, gt_width = gt_seg_map.shape[-2:]
+            weights = resize(
+                input=weights.view(batch_size, self.num_classes, gt_height, gt_width),
+                size=feats.shape[-2:],
+                mode='nearest'
+            ).view(batch_size, self.num_classes, -1)
+
+        feats = feats.view(batch_size, channels, -1)
+        feats = feats.permute(0, 2, 1)  # [batch_size, height*width, channels]
+
+        out_context = torch.matmul(weights, feats)  # [batch_size, num_classes, channels]
         out_context = out_context.permute(0, 2, 1).contiguous().unsqueeze(3)  # [batch_size, channels, num_classes, 1]
 
         return out_context
@@ -109,7 +160,8 @@ class OCRHead(BaseCascadeDecodeHead):
             Default: 1.
     """
 
-    def __init__(self, ocr_channels, scale=1, spatial_scale=1.0, out_act_cfg='default', sep_conv=False, **kwargs):
+    def __init__(self, ocr_channels, scale=1, spatial_scale=1.0, out_act_cfg='default', sep_conv=False,
+                 external_spatial_gather=False, **kwargs):
         super(OCRHead, self).__init__(**kwargs)
 
         self.ocr_channels = ocr_channels
@@ -135,9 +187,10 @@ class OCRHead(BaseCascadeDecodeHead):
             act_cfg=self.act_cfg,
             out_act_cfg=out_act_cfg
         )
-        self.spatial_gather_module = SpatialGatherModule(
-            scale=self.spatial_scale
-        )
+        
+        self.spatial_gather_module = None
+        if not external_spatial_gather:
+            self.spatial_gather_module = SpatialGatherModule(scale=self.spatial_scale)
 
     @staticmethod
     def _build_conv_module(sep_conv, in_channels, out_channels, **kwargs):
@@ -161,9 +214,85 @@ class OCRHead(BaseCascadeDecodeHead):
         x = self._transform_inputs(inputs)
 
         feats = self.bottleneck(x)
-        context = self.spatial_gather_module(feats, prev_output)
+
+        if self.spatial_gather_module is not None:
+            context = self.spatial_gather_module(feats, prev_output)
+        else:
+            context = prev_output        
+
+        augmented_feat = self.object_context_block(feats, context)
+        output = self.cls_seg(augmented_feat)
+
+        return output
+
+
+@HEADS.register_module()
+class AuxOCRHead(BaseDecodeHead):
+    """Auxiliary OCR head for mutual learning between OCR heads.
+    """
+
+    def __init__(self, ocr_channels, scale=1, spatial_scale=1.0, out_act_cfg='default', sep_conv=False, **kwargs):
+        super(AuxOCRHead, self).__init__(**kwargs)
+
+        self.ocr_channels = ocr_channels
+        self.scale = scale
+        self.spatial_scale = spatial_scale
+
+        self.bottleneck = self._build_conv_module(
+            sep_conv,
+            self.in_channels,
+            self.channels,
+            kernel_size=3,
+            padding=1,
+            conv_cfg=self.conv_cfg,
+            norm_cfg=self.norm_cfg,
+            act_cfg=self.act_cfg
+        )
+        self.object_context_block = ObjectAttentionBlock(
+            self.channels,
+            self.ocr_channels,
+            scale=self.scale,
+            conv_cfg=self.conv_cfg,
+            norm_cfg=self.norm_cfg,
+            act_cfg=self.act_cfg,
+            out_act_cfg=out_act_cfg
+        )
+        self.spatial_gather_module = AuxSpatialGatherModule(
+            num_classes=self.num_classes,
+            ignore_index=self.ignore_index
+        )
+
+    @staticmethod
+    def _build_conv_module(sep_conv, in_channels, out_channels, **kwargs):
+        if sep_conv:
+            return DepthwiseSeparableConvModule(
+                in_channels,
+                out_channels,
+                dw_act_cfg=None,
+                **kwargs
+            )
+        else:
+            return ConvModule(
+                in_channels,
+                out_channels,
+                **kwargs
+            )
+
+    def forward(self, inputs, gt_seg_map):
+        """Forward function."""
+
+        x = self._transform_inputs(inputs)
+
+        feats = self.bottleneck(x)
+        context = self.spatial_gather_module(feats, gt_seg_map)
         augmented_feat = self.object_context_block(feats, context)
 
         output = self.cls_seg(augmented_feat)
 
         return output
+
+    def forward_train(self, inputs, img_metas, gt_semantic_seg, train_cfg, pixel_weights=None):
+        seg_logits = self.forward(inputs, gt_semantic_seg)
+        losses = self.losses(seg_logits, gt_semantic_seg, train_cfg, pixel_weights)
+
+        return losses, seg_logits

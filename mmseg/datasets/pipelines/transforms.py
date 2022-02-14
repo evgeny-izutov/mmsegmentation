@@ -1089,24 +1089,26 @@ class CrossNorm(object):
 
 
 @PIPELINES.register_module()
-class BorderWeighting(object):
-    def __init__(self, sigma=8.0, eps=1e-2, ignore_index=255):
-        self.sigma = sigma
-        self.eps = eps
+class ClassBordersExtractor(object):
+    def __init__(self, ignore_index=255):
         self.ignore_index = ignore_index
 
     def _extract_edges(self, gt_labels):
-        invalid_mask = (gt_labels == self.ignore_index).astype(np.float32)
+        invalid_mask = gt_labels == self.ignore_index
+        invalid_mask_float = invalid_mask.astype(np.float32)
         gt_labels = np.copy(gt_labels).astype(np.float32)
 
         kernel = np.ones([3, 3], dtype=np.float32) / 8.0
         kernel[1, 1] = 0.0
 
         pos_conv = convolve2d(gt_labels, kernel, boundary='symm', mode='same')
-        neg_conv = convolve2d(invalid_mask, kernel, boundary='symm', mode='same')
+        neg_conv = convolve2d(invalid_mask_float, kernel, boundary='symm', mode='same')
 
         out = gt_labels != pos_conv
-        out[invalid_mask != neg_conv] = False
+        out[invalid_mask_float != neg_conv] = False
+
+        out = out.astype(np.uint8)
+        out[invalid_mask] = self.ignore_index
 
         return out
 
@@ -1114,6 +1116,25 @@ class BorderWeighting(object):
         gt_labels = results['gt_semantic_seg']
 
         edges = self._extract_edges(gt_labels)
+        results['gt_class_borders'] = edges
+
+        return results
+
+    def __repr__(self):
+        repr_str = f'{self.__class__.__name__}(' \
+                   f'ignore_index={self.ignore_index})'
+        return repr_str
+
+
+@PIPELINES.register_module()
+class ClassBordersWeighting(object):
+    def __init__(self, sigma=8.0, eps=1e-2):
+        self.sigma = sigma
+        self.eps = eps
+
+    def __call__(self, results):
+        edges = results['gt_class_borders']
+
         dist = distance_transform_edt(~edges)
 
         weights = np.exp(-dist / self.sigma)
@@ -1126,8 +1147,7 @@ class BorderWeighting(object):
     def __repr__(self):
         repr_str = f'{self.__class__.__name__}(' \
                    f'sigma={self.sigma}, '\
-                   f'eps={self.eps}, '\
-                   f'ignore_index={self.ignore_index})'
+                   f'eps={self.eps})'
         return repr_str
 
 

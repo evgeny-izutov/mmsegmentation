@@ -72,7 +72,32 @@ class BasePixelLoss(BaseWeightedLoss):
             valid_values = values[valid_mask]
             sparsity = 1.0 - float(valid_values.count_nonzero().item()) / max(1.0, float(valid_mask.sum().item()))
 
-            return sparsity
+        return sparsity
+
+    @staticmethod
+    def _pred_stat(output, labels, valid_mask, window_size=5, min_group_ratio=0.6):
+        assert window_size > 1
+        assert 0.0 < min_group_ratio < 1.0
+
+        min_group_size = int(min_group_ratio * window_size * window_size)
+        assert min_group_size > 0
+
+        with torch.no_grad():
+            predictions = torch.argmax(output, dim=1)
+            invalid_pred_mask = valid_mask & (predictions != labels)
+
+            group_sizes = F.avg_pool2d(invalid_pred_mask.float(),
+                                       kernel_size=window_size,
+                                       stride=1,
+                                       padding=(window_size - 1) // 2,
+                                       divisor_override=1)
+            large_group_mask = invalid_pred_mask & (group_sizes >= min_group_size)
+
+            num_target = torch.sum(large_group_mask, dim=(1, 2))
+            num_total = torch.sum(invalid_pred_mask, dim=(1, 2))
+            out_ratio = torch.mean(num_target / num_total.clamp_min(1)).item()
+
+        return out_ratio
 
     def _forward(self, output, labels, avg_factor=None, pixel_weights=None, reduction_override=None):
         assert reduction_override in (None, 'none', 'mean', 'sum')
@@ -100,6 +125,7 @@ class BasePixelLoss(BaseWeightedLoss):
 
         losses = torch.where(valid_mask, losses, torch.zeros_like(losses))
         raw_sparsity = self._sparsity(losses, valid_mask)
+        invalid_ratio = self._pred_stat(output, labels, valid_mask)
 
         weight, weight_sparsity = None, 0.0
         if self.sampler is not None:
@@ -118,7 +144,8 @@ class BasePixelLoss(BaseWeightedLoss):
             reg_weight=self.last_reg_weight,
             scale=self.last_scale,
             raw_sparsity=raw_sparsity,
-            weight_sparsity=weight_sparsity
+            weight_sparsity=weight_sparsity,
+            invalid_ratio=invalid_ratio
         )
 
         return loss, meta

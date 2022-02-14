@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+
+from .aggregator import IterativeAggregator, IterativeConcatAggregator
 from .drop import DropPath
 from .inverted_residual import InvertedResidual, InvertedResidualV3
 from .make_divisible import make_divisible
@@ -21,6 +23,8 @@ from .psp_layer import PSPModule
 from .asymmetric_position_attention import AsymmetricPositionAttentionModule
 
 __all__ = [
+    'IterativeAggregator',
+    'IterativeConcatAggregator',
     'ResLayer',
     'SelfAttentionBlock',
     'make_divisible',

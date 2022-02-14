@@ -62,6 +62,8 @@ from .configuration import OTESegmentationConfig
 from openvino.model_zoo.model_api.models import Model
 from openvino.model_zoo.model_api.adapters import create_core, OpenvinoAdapter
 from . import model_wrappers
+
+
 logger = logging.getLogger(__name__)
 
 
