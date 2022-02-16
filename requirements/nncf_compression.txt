@@ -1,1 +1,1 @@
-git+https://github.com/openvinotoolkit/nncf@464244204fc2c5e80c8164c17d8d266ccae50062#egg=nncf
+nncf @ git+https://github.com/openvinotoolkit/nncf@464244204fc2c5e80c8164c17d8d266ccae50062#egg=nncf
