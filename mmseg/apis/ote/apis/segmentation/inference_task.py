@@ -24,7 +24,7 @@ from typing import Optional
 import numpy as np
 import torch
 from mmcv.parallel import MMDataParallel
-from mmcv.runner import load_checkpoint
+from mmcv.runner import load_checkpoint, load_state_dict
 from mmcv.utils import Config
 from ote_sdk.utils.segmentation_utils import (create_hard_prediction_from_soft_prediction,
                                               create_annotation_from_segmentation_map)
@@ -115,7 +115,7 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
             model = self._create_model(self._config, from_scratch=True)
 
             try:
-                model.load_state_dict(model_data['model'])
+                load_state_dict(model, model_data['model'])
                 logger.info(f"Loaded model weights from Task Environment")
                 logger.info(f"Model architecture: {self._model_name}")
             except BaseException as ex:
