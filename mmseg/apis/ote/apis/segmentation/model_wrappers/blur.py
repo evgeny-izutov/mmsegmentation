@@ -18,6 +18,14 @@ from typing import Any, Dict
 
 from openvino.model_zoo.model_api.models import SegmentationModel
 from openvino.model_zoo.model_api.models.types import NumericalValue
+
+from ote_sdk.entities.model import ModelConfiguration
+from ote_sdk.utils.argument_checks import (
+    OptionalParamTypeCheck,
+    RequiredParamTypeCheck,
+    check_input_param_type,
+)
+from ote_sdk.usecases.adapters.model_adapter import ModelAdapter
 from ote_sdk.utils.segmentation_utils import create_hard_prediction_from_soft_prediction
 
 
@@ -25,6 +33,11 @@ class BlurSegmentation(SegmentationModel):
     __model__ = 'blur_segmentation'
 
     def __init__(self, model_adapter, configuration=None, preload=False):
+        check_input_param_type(
+            RequiredParamTypeCheck(model_adapter, "model_adapter", ModelAdapter),
+            OptionalParamTypeCheck(configuration, "configuration", ModelConfiguration),
+            RequiredParamTypeCheck(preload, "preload", bool),
+        )
         super().__init__(model_adapter, configuration, preload)
 
     @classmethod
@@ -38,6 +51,10 @@ class BlurSegmentation(SegmentationModel):
         return parameters
 
     def postprocess(self, outputs: Dict[str, np.ndarray], metadata: Dict[str, Any]):
+        check_input_param_type(
+            RequiredParamTypeCheck(outputs, "outputs", Dict[str, np.ndarray]),
+            RequiredParamTypeCheck(metadata, "metadata", Dict[str, Any]),
+        )
         predictions = outputs[self.output_blob_name].squeeze()
         soft_prediction = np.transpose(predictions, axes=(1, 2, 0))
 

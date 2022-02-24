@@ -16,11 +16,18 @@ import logging
 import math
 import os
 from collections import defaultdict
+from typing import Any, Dict
 
 from mmcv.runner.hooks import HOOKS, Hook, LoggerHook
 from mmcv.runner import BaseRunner, EpochBasedRunner
 from mmcv.runner.dist_utils import master_only
 
+from ote_sdk.utils.argument_checks import (
+    OptionalParamTypeCheck,
+    RequiredParamTypeCheck,
+    check_input_param_type,
+)
+from ote_sdk.usecases.reporting.time_monitor_callback import TimeMonitorCallback
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +43,7 @@ class CancelTrainingHook(Hook):
         :param interval: Period for checking for stop signal, given in iterations.
 
         """
+        RequiredParamTypeCheck(interval, "interval", int).check()
         self.interval = interval
 
     @staticmethod
@@ -50,6 +58,7 @@ class CancelTrainingHook(Hook):
             os.remove(stop_filepath)
 
     def after_train_iter(self, runner: BaseRunner):
+        RequiredParamTypeCheck(runner, "runner", BaseRunner).check()
         if not self.every_n_iters(runner, self.interval):
             return
         self._check_for_stop_signal(runner)
@@ -65,6 +74,7 @@ class FixedMomentumUpdaterHook(Hook):
         pass
 
     def before_run(self, runner):
+        RequiredParamTypeCheck(runner, "runner", BaseRunner).check()
         pass
 
 
@@ -78,6 +88,7 @@ class EnsureCorrectBestCheckpointHook(Hook):
         pass
 
     def after_run(self, runner):
+        RequiredParamTypeCheck(runner, "runner", BaseRunner).check()
         runner.call_hook('after_train_epoch')
 
 
@@ -101,11 +112,21 @@ class OTELoggerHook(LoggerHook):
                  ignore_last=True,
                  reset_flag=True,
                  by_epoch=True):
+        check_input_param_type(
+            OptionalParamTypeCheck(
+                curves, "curves", Dict[Any, self.Curve]
+            ),
+            RequiredParamTypeCheck(interval, "interval", int),
+            RequiredParamTypeCheck(ignore_last, "ignore_last", bool),
+            RequiredParamTypeCheck(reset_flag, "reset_flag", bool),
+            RequiredParamTypeCheck(by_epoch, "by_epoch", bool),
+        )
         super().__init__(interval, ignore_last, reset_flag, by_epoch)
         self.curves = curves if curves is not None else defaultdict(self.Curve)
 
     @master_only
     def log(self, runner):
+        RequiredParamTypeCheck(runner, "runner", BaseRunner).check()
         tags = self.get_loggable_tags(runner, allow_text=False)
         if runner.max_epochs is not None:
             normalized_iter = self.get_iter(runner) / runner.max_iters * runner.max_epochs
@@ -121,6 +142,7 @@ class OTELoggerHook(LoggerHook):
             curve.y.append(value)
 
     def after_train_epoch(self, runner):
+        RequiredParamTypeCheck(runner, "runner", BaseRunner).check()
         # Iteration counter is increased right after the last iteration in the epoch,
         # temporarily decrease it back.
         runner._iter -= 1
@@ -131,12 +153,17 @@ class OTELoggerHook(LoggerHook):
 @HOOKS.register_module()
 class OTEProgressHook(Hook):
     def __init__(self, time_monitor, verbose=False):
+        check_input_param_type(
+            RequiredParamTypeCheck(time_monitor, "time_monitor", TimeMonitorCallback),
+            RequiredParamTypeCheck(verbose, "verbose", bool),
+        )
         super().__init__()
         self.time_monitor = time_monitor
         self.verbose = verbose
         self.print_threshold = 1
 
     def before_run(self, runner):
+        RequiredParamTypeCheck(runner, "runner", BaseRunner).check()
         total_epochs = runner.max_epochs if runner.max_epochs is not None else 1
         self.time_monitor.total_epochs = total_epochs
         self.time_monitor.train_steps = runner.max_iters // total_epochs if total_epochs else 1
@@ -146,15 +173,19 @@ class OTEProgressHook(Hook):
         self.time_monitor.current_epoch = 0
 
     def before_epoch(self, runner):
+        RequiredParamTypeCheck(runner, "runner", BaseRunner).check()
         self.time_monitor.on_epoch_begin(runner.epoch)
 
     def after_epoch(self, runner):
+        RequiredParamTypeCheck(runner, "runner", BaseRunner).check()
         self.time_monitor.on_epoch_end(runner.epoch, runner.log_buffer.output)
 
     def before_iter(self, runner):
+        RequiredParamTypeCheck(runner, "runner", BaseRunner).check()
         self.time_monitor.on_train_batch_begin(1)
 
     def after_iter(self, runner):
+        RequiredParamTypeCheck(runner, "runner", BaseRunner).check()
         self.time_monitor.on_train_batch_end(1)
         if self.verbose:
             progress = self.progress
@@ -163,12 +194,15 @@ class OTEProgressHook(Hook):
                 self.print_threshold = (progress + 10) // 10 * 10
 
     def before_val_iter(self, runner):
+        RequiredParamTypeCheck(runner, "runner", BaseRunner).check()
         self.time_monitor.on_test_batch_begin(1)
 
     def after_val_iter(self, runner):
+        RequiredParamTypeCheck(runner, "runner", BaseRunner).check()
         self.time_monitor.on_test_batch_end(1)
 
     def after_run(self, runner):
+        RequiredParamTypeCheck(runner, "runner", BaseRunner).check()
         self.time_monitor.on_train_end(1)
         self.time_monitor.update_progress_callback(self.time_monitor.get_progress())
 

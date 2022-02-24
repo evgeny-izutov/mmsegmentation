@@ -14,7 +14,7 @@
 
 import json
 import os
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 import cv2
 import numpy as np
@@ -28,6 +28,14 @@ from ote_sdk.entities.label import LabelEntity, Domain
 from ote_sdk.entities.scored_label import ScoredLabel
 from ote_sdk.entities.shapes.polygon import Point, Polygon
 from ote_sdk.entities.subset import Subset
+from ote_sdk.utils.argument_checks import (
+    DatasetParamTypeCheck,
+    DirectoryPathCheck,
+    FilePathCheck,
+    OptionalParamTypeCheck,
+    RequiredParamTypeCheck,
+    check_input_param_type,
+)
 
 from mmseg.datasets.builder import DATASETS
 from mmseg.datasets.custom import CustomDataset
@@ -44,6 +52,10 @@ def get_annotation_mmseg_format(dataset_item: DatasetItemEntity, labels: List[La
     :param labels: List of labels in the project
     :return dict: annotation information dict in mmseg format
     """
+    check_input_param_type(
+        RequiredParamTypeCheck(dataset_item, "dataset_item", DatasetItemEntity),
+        RequiredParamTypeCheck(labels, "labels", List[LabelEntity]),
+    )
 
     gt_seg_map = mask_from_dataset_item(dataset_item, labels)
     gt_seg_map = gt_seg_map.squeeze(2).astype(np.uint8)
@@ -100,6 +112,12 @@ class OTEDataset(CustomDataset):
             return data_info
 
     def __init__(self, ote_dataset: DatasetEntity, pipeline, classes=None, test_mode: bool = False):
+        check_input_param_type(
+            DatasetParamTypeCheck(ote_dataset, "ote_dataset"),
+            RequiredParamTypeCheck(pipeline, "pipeline", Sequence[dict]),
+            OptionalParamTypeCheck(classes, "classes", List[str]),
+            RequiredParamTypeCheck(test_mode, "test_mode", bool),
+        )
         self.ote_dataset = ote_dataset
         self.test_mode = test_mode
 
@@ -125,6 +143,10 @@ class OTEDataset(CustomDataset):
 
     @staticmethod
     def filter_labels(all_labels, label_names):
+        check_input_param_type(
+            RequiredParamTypeCheck(all_labels, "all_labels", List[LabelEntity]),
+            RequiredParamTypeCheck(label_names, "label_names", List[str]),
+        )
         filtered_labels = []
         for label_name in label_names:
             matches = [label for label in all_labels if label.name == label_name]
@@ -144,6 +166,7 @@ class OTEDataset(CustomDataset):
 
     def pre_pipeline(self, results):
         """Prepare results dict for pipeline."""
+        RequiredParamTypeCheck(results, "results", Dict[str, Any]).check()
 
         results['seg_fields'] = []
 
@@ -156,6 +179,7 @@ class OTEDataset(CustomDataset):
         Returns:
             dict: Training data and annotation after pipeline with new keys introduced by pipeline.
         """
+        RequiredParamTypeCheck(idx, "idx", int).check()
 
         item = self.data_infos[idx]
 
@@ -173,6 +197,7 @@ class OTEDataset(CustomDataset):
         Returns:
             dict: Testing data after pipeline with new keys introduced by pipeline.
         """
+        RequiredParamTypeCheck(idx, "idx", int).check()
 
         item = self.data_infos[idx]
 
@@ -189,6 +214,7 @@ class OTEDataset(CustomDataset):
         :param idx: index of the dataset item for which to get the annotations
         :return ann_info: dict that contains the coordinates of the bboxes and their corresponding labels
         """
+        RequiredParamTypeCheck(idx, "idx", int).check()
 
         dataset_item = self.ote_dataset[idx]
         ann_info = get_annotation_mmseg_format(dataset_item, self.project_labels)
@@ -197,6 +223,7 @@ class OTEDataset(CustomDataset):
 
     def get_gt_seg_maps(self, efficient_test=False):
         """Get ground truth segmentation maps for evaluation."""
+        RequiredParamTypeCheck(efficient_test, "efficient_test", bool).check()
 
         gt_seg_maps = []
         for item_id in range(len(self)):
@@ -207,6 +234,7 @@ class OTEDataset(CustomDataset):
 
 
 def get_classes_from_annotation(annot_path):
+    FilePathCheck(annot_path, "annot_path", ["json"]).check()
     with open(annot_path) as input_stream:
         content = json.load(input_stream)
         labels_map = content['labels_map']
@@ -217,6 +245,7 @@ def get_classes_from_annotation(annot_path):
 
 
 def abs_path_if_valid(value):
+    DirectoryPathCheck(value, "value").check()
     if value:
         return os.path.abspath(value)
     else:
@@ -224,6 +253,10 @@ def abs_path_if_valid(value):
 
 
 def create_annotation_from_hard_seg_map(hard_seg_map: np.ndarray, labels: List[LabelEntity]):
+    check_input_param_type(
+        RequiredParamTypeCheck(hard_seg_map, "hard_seg_map", np.ndarray),
+        RequiredParamTypeCheck(labels, "labels", List[LabelEntity]),
+    )
     height, width = hard_seg_map.shape[:2]
     unique_labels = np.unique(hard_seg_map)
 
@@ -270,6 +303,7 @@ def create_annotation_from_hard_seg_map(hard_seg_map: np.ndarray, labels: List[L
 
 
 def load_labels_from_annotation(ann_dir):
+    DirectoryPathCheck(ann_dir, "ann_dir").check()
     if ann_dir is None:
         return []
 
@@ -280,6 +314,10 @@ def load_labels_from_annotation(ann_dir):
 
 
 def add_labels(cur_labels, new_labels):
+    check_input_param_type(
+        RequiredParamTypeCheck(cur_labels, "cur_labels", List[LabelEntity]),
+        RequiredParamTypeCheck(new_labels, "new_labels", List[tuple]),
+    )
     for label_name, label_id in new_labels:
         matching_labels = [label for label in cur_labels if label.name == label_name]
         if len(matching_labels) > 1:
@@ -293,6 +331,10 @@ def add_labels(cur_labels, new_labels):
 
 
 def check_labels(cur_labels, new_labels):
+    check_input_param_type(
+        RequiredParamTypeCheck(cur_labels, "cur_labels", List[LabelEntity]),
+        RequiredParamTypeCheck(new_labels, "new_labels", List[tuple]),
+    )
     cur_names = {label.name for label in cur_labels}
     new_names = {label[0] for label in new_labels}
     if cur_names != new_names:
@@ -300,6 +342,7 @@ def check_labels(cur_labels, new_labels):
 
 
 def get_extended_label_names(labels):
+    RequiredParamTypeCheck(labels, "labels", List[LabelEntity]).check()
     target_labels = [v.name for v in sorted(labels, key=lambda x: x.id)]
     all_labels = ['background'] + target_labels
     return all_labels
@@ -309,6 +352,12 @@ def load_dataset_items(ann_file_path: str,
                        data_root_dir: str,
                        subset: Subset = Subset.NONE,
                        labels_list: Optional[List[LabelEntity]] = None):
+    check_input_param_type(
+        FilePathCheck(ann_file_path, "ann_file_path", ["json"]),
+        DirectoryPathCheck(data_root_dir, "data_root_dir"),
+        RequiredParamTypeCheck(subset, "subset", Subset),
+        OptionalParamTypeCheck(labels_list, "labels_list", List[LabelEntity]),
+    )
     ann_dir = abs_path_if_valid(ann_file_path)
     img_dir = abs_path_if_valid(data_root_dir)
 

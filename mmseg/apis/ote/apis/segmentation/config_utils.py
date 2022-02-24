@@ -20,12 +20,19 @@ import math
 import os
 import tempfile
 from collections import defaultdict
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 from mmcv import Config, ConfigDict
 from ote_sdk.entities.datasets import DatasetEntity
 from ote_sdk.entities.label import LabelEntity
 from ote_sdk.usecases.reporting.time_monitor_callback import TimeMonitorCallback
+from ote_sdk.utils.argument_checks import (
+    DatasetParamTypeCheck,
+    DirectoryPathCheck,
+    OptionalParamTypeCheck,
+    RequiredParamTypeCheck,
+    check_input_param_type,
+)
 
 from .configuration import OTESegmentationConfig
 
@@ -34,6 +41,7 @@ logger = logging.getLogger(__name__)
 
 
 def is_epoch_based_runner(runner_config: ConfigDict):
+    RequiredParamTypeCheck(runner_config, "runner_config", ConfigDict).check()
     return 'Epoch' in runner_config.type
 
 
@@ -42,6 +50,13 @@ def patch_config(config: Config,
                  labels: List[LabelEntity],
                  random_seed: Optional[int] = None,
                  distributed=False):
+    check_input_param_type(
+        RequiredParamTypeCheck(config, "config", Config),
+        DirectoryPathCheck(work_dir, "work_dir"),
+        RequiredParamTypeCheck(labels, "labels", List[LabelEntity]),
+        OptionalParamTypeCheck(random_seed, "random_seed", int),
+        RequiredParamTypeCheck(distributed, "distributed", bool),
+    )
     # Set runner if not defined.
     if 'runner' not in config:
         config.runner = {'type': 'IterBasedRunner'}
@@ -108,6 +123,10 @@ def patch_config(config: Config,
 
 
 def set_hyperparams(config: Config, hyperparams: OTESegmentationConfig):
+    check_input_param_type(
+        RequiredParamTypeCheck(config, "config", Config),
+        RequiredParamTypeCheck(hyperparams, "hyperparams", OTESegmentationConfig),
+    )
     config.data.samples_per_gpu = int(hyperparams.learning_parameters.batch_size)
     config.data.workers_per_gpu = int(hyperparams.learning_parameters.num_workers)
     config.optimizer.lr = float(hyperparams.learning_parameters.learning_rate)
@@ -135,6 +154,10 @@ def set_hyperparams(config: Config, hyperparams: OTESegmentationConfig):
 
 
 def rescale_num_iterations(config: Config, schedule_scale: float):
+    check_input_param_type(
+        RequiredParamTypeCheck(config, "config", Config),
+        RequiredParamTypeCheck(schedule_scale, "schedule_scale", float),
+    )
     # rescale number of iterations for lr scheduler
     if config.lr_config.policy == 'customstep':
         config.lr_config.step = [int(schedule_scale * step) for step in config.lr_config.step]
@@ -171,6 +194,12 @@ def rescale_num_iterations(config: Config, schedule_scale: float):
 
 
 def patch_adaptive_repeat_dataset(config: Config, num_samples: int, decay: float = 0.002, factor: float = 10):
+    check_input_param_type(
+        RequiredParamTypeCheck(config, "config", (Config, ConfigDict)),
+        RequiredParamTypeCheck(num_samples, "num_samples", int),
+        RequiredParamTypeCheck(decay, "decay", float),
+        RequiredParamTypeCheck(factor, "factor", float),
+    )
     if config.data.train.type != 'RepeatDataset':
         return
 
@@ -200,6 +229,10 @@ def patch_adaptive_repeat_dataset(config: Config, num_samples: int, decay: float
 
 
 def prepare_for_testing(config: Config, dataset: DatasetEntity) -> Config:
+    check_input_param_type(
+        RequiredParamTypeCheck(config, "config", Config),
+        DatasetParamTypeCheck(dataset, "dataset"),
+    )
     config = copy.deepcopy(config)
     config.data.test.ote_dataset = dataset
     return config
@@ -207,6 +240,13 @@ def prepare_for_testing(config: Config, dataset: DatasetEntity) -> Config:
 
 def prepare_for_training(config: Config, train_dataset: DatasetEntity, val_dataset: DatasetEntity,
                          time_monitor: TimeMonitorCallback, learning_curves: defaultdict) -> Config:
+    check_input_param_type(
+        RequiredParamTypeCheck(config, "config", Config),
+        DatasetParamTypeCheck(train_dataset, "train_dataset"),
+        DatasetParamTypeCheck(val_dataset, "val_dataset"),
+        RequiredParamTypeCheck(time_monitor, "time_monitor", TimeMonitorCallback),
+        RequiredParamTypeCheck(learning_curves, "learning_curves", defaultdict),
+    )
     config = copy.deepcopy(config)
     prepare_work_dir(config)
 
@@ -232,7 +272,7 @@ def config_to_string(config: Config) -> str:
     :param config: configuration object to convert
     :return str: string representation of the configuration
     """
-
+    RequiredParamTypeCheck(config, "config", (Config, ConfigDict)).check()
     config_copy = copy.deepcopy(config)
     # Clean config up by removing dataset as this causes the pretty text parsing to fail.
     config_copy.data.test.ote_dataset = None
@@ -252,6 +292,7 @@ def config_from_string(config_string: str) -> Config:
     :return config: configuration object
     """
 
+    RequiredParamTypeCheck(config_string, "config_string", str).check()
     with tempfile.NamedTemporaryFile('w', suffix='.py') as temp_file:
         temp_file.write(config_string)
         temp_file.flush()
@@ -261,6 +302,7 @@ def config_from_string(config_string: str) -> Config:
 def save_config_to_file(config: Config):
     """ Dump the full config to a file. Filename is 'config.py', it is saved in the current work_dir. """
 
+    RequiredParamTypeCheck(config, "config", Config).check()
     filepath = os.path.join(config.work_dir, 'config.py')
     config_string = config_to_string(config)
     with open(filepath, 'w') as f:
@@ -268,6 +310,7 @@ def save_config_to_file(config: Config):
 
 
 def prepare_work_dir(config: Config) -> str:
+    RequiredParamTypeCheck(config, "config", (Config, ConfigDict)).check()
     base_work_dir = config.work_dir
     checkpoint_dirs = glob.glob(os.path.join(base_work_dir, "checkpoints_round_*"))
     train_round_checkpoint_dir = os.path.join(base_work_dir, f"checkpoints_round_{len(checkpoint_dirs)}")
@@ -283,6 +326,10 @@ def prepare_work_dir(config: Config) -> str:
 
 
 def set_distributed_mode(config: Config, distributed: bool):
+    check_input_param_type(
+        RequiredParamTypeCheck(config, "config", Config),
+        RequiredParamTypeCheck(distributed, "distributed", bool),
+    )
     if distributed:
         return
 
@@ -308,6 +355,10 @@ def set_distributed_mode(config: Config, distributed: bool):
 
 
 def set_data_classes(config: Config, label_names: List[str]):
+    check_input_param_type(
+        RequiredParamTypeCheck(config, "config", Config),
+        RequiredParamTypeCheck(label_names, "label_names", List[str]),
+    )
     # Save labels in data configs.
     for subset in ('train', 'val', 'test'):
         cfg = config.data[subset]
@@ -319,6 +370,10 @@ def set_data_classes(config: Config, label_names: List[str]):
 
 
 def set_num_classes(config: Config, num_classes: int):
+    check_input_param_type(
+        RequiredParamTypeCheck(config, "config", Config),
+        RequiredParamTypeCheck(num_classes, "num_classes", int),
+    )
     assert num_classes > 1
 
     for head_type in ('decode_head', 'auxiliary_head'):
@@ -337,6 +392,7 @@ def set_num_classes(config: Config, num_classes: int):
 
 
 def patch_color_conversion(pipeline):
+    RequiredParamTypeCheck(pipeline, "pipeline", Sequence[dict]).check()
     # Default data format for OTE is RGB, while mmseg uses BGR, so negate the color conversion flag.
     for pipeline_step in pipeline:
         if pipeline_step.type == 'Normalize':
@@ -350,6 +406,7 @@ def patch_color_conversion(pipeline):
 
 
 def patch_datasets(config: Config):
+    RequiredParamTypeCheck(config, "config", Config).check()
     assert 'data' in config
     for subset in ('train', 'val', 'test'):
         cfg = config.data[subset]
@@ -372,6 +429,10 @@ def patch_datasets(config: Config):
 
 
 def remove_from_config(config, key: str):
+    check_input_param_type(
+        RequiredParamTypeCheck(config, "config", Config),
+        RequiredParamTypeCheck(key, "key", str),
+    )
     if key in config:
         if isinstance(config, Config):
             del config._cfg_dict[key]

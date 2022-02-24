@@ -42,7 +42,12 @@ from ote_sdk.usecases.tasks.interfaces.evaluate_interface import IEvaluationTask
 from ote_sdk.usecases.tasks.interfaces.export_interface import ExportType, IExportTask
 from ote_sdk.usecases.tasks.interfaces.inference_interface import IInferenceTask
 from ote_sdk.usecases.tasks.interfaces.unload_interface import IUnload
-
+from ote_sdk.utils.argument_checks import (
+    DatasetParamTypeCheck,
+    OptionalParamTypeCheck,
+    RequiredParamTypeCheck,
+    check_input_param_type,
+)
 
 from mmseg.apis import export_model
 from mmseg.apis.ote.apis.segmentation.config_utils import (patch_config,
@@ -67,6 +72,9 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
 
         """
 
+        RequiredParamTypeCheck(
+            task_environment, "task_environment", TaskEnvironment
+        ).check()
         logger.info(f"Loading OTESegmentationTask.")
         self._scratch_space = tempfile.mkdtemp(prefix="ote-seg-scratch-")
         logger.info(f"Scratch space created at {self._scratch_space}")
@@ -164,6 +172,12 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
               inference_parameters: Optional[InferenceParameters] = None) -> DatasetEntity:
         """ Analyzes a dataset using the latest inference model. """
 
+        check_input_param_type(
+            DatasetParamTypeCheck(dataset, "dataset"),
+            OptionalParamTypeCheck(
+                inference_parameters, "inference_parameters", InferenceParameters
+            ),
+        )
         set_hyperparams(self._config, self._hyperparams)
 
         # There is no need to have many workers for a couple of images.
@@ -283,6 +297,12 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
     def evaluate(self, output_result_set: ResultSetEntity, evaluation_metric: Optional[str] = None):
         """ Computes performance on a resultset """
 
+        check_input_param_type(
+            RequiredParamTypeCheck(
+                output_result_set, "output_result_set", ResultSetEntity
+            ),
+            OptionalParamTypeCheck(evaluation_metric, "evaluation_metric", str),
+        )
         logger.info('Computing mDice')
         metrics = MetricsHelper.compute_dice_averaged_over_pixels(
             output_result_set
@@ -324,6 +344,11 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
                            f"Torch is still occupying {torch.cuda.memory_allocated()} bytes of GPU memory")
 
     def export(self, export_type: ExportType, output_model: ModelEntity):
+        check_input_param_type(
+            RequiredParamTypeCheck(export_type, "export_type", ExportType),
+            RequiredParamTypeCheck(output_model, "output_model", ModelEntity),
+        )
+
         assert export_type == ExportType.OPENVINO
 
         output_model.model_format = ModelFormat.OPENVINO

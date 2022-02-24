@@ -19,15 +19,21 @@ import time
 
 from ote_sdk.entities.train_parameters import UpdateProgressCallback
 from ote_sdk.usecases.reporting.time_monitor_callback import TimeMonitorCallback
+from ote_sdk.utils.argument_checks import (
+    FilePathCheck,
+    RequiredParamTypeCheck,
+)
 
 
 def load_template(path):
+    FilePathCheck(path, "path", ["yaml"]).check()
     with open(path) as f:
         template = yaml.full_load(f)
     return template
 
 
 def get_task_class(path):
+    RequiredParamTypeCheck(path, "path", str).check()
     module_name, class_name = path.rsplit('.', 1)
     module = importlib.import_module(module_name)
     return getattr(module, class_name)

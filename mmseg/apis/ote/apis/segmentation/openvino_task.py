@@ -50,6 +50,13 @@ from ote_sdk.usecases.tasks.interfaces.deployment_interface import IDeploymentTa
 from ote_sdk.usecases.tasks.interfaces.evaluate_interface import IEvaluationTask
 from ote_sdk.usecases.tasks.interfaces.inference_interface import IInferenceTask
 from ote_sdk.usecases.tasks.interfaces.optimization_interface import IOptimizationTask, OptimizationType
+from ote_sdk.utils.argument_checks import (
+    ClassNameCheck,
+    DatasetParamTypeCheck,
+    OptionalParamTypeCheck,
+    RequiredParamTypeCheck,
+    check_input_param_type,
+)
 
 from compression.api import DataLoader
 from compression.engines.ie_engine import IEEngine
@@ -87,6 +94,14 @@ class OpenVINOSegmentationInferencer(BaseInferencer):
         :param num_requests: Maximum number of requests that the inferencer can make.
             Good value is the number of available cores. Defaults to 1.
         """
+        check_input_param_type(
+            RequiredParamTypeCheck(hparams, "hparams", OTESegmentationConfig),
+            RequiredParamTypeCheck(label_schema, "label_schema", LabelSchemaEntity),
+            RequiredParamTypeCheck(model_file, "model_file", (str, bytes)),
+            OptionalParamTypeCheck(weight_file, "weight_file", (str, bytes)),
+            RequiredParamTypeCheck(device, "device", str),
+            RequiredParamTypeCheck(num_requests, "num_requests", int),
+        )
 
         model_adapter = OpenvinoAdapter(create_core(), model_file, weight_file, device=device, max_num_requests=num_requests)
         self.configuration = {**attr.asdict(hparams.postprocessing,
@@ -95,23 +110,34 @@ class OpenVINOSegmentationInferencer(BaseInferencer):
         self.converter = SegmentationToAnnotationConverter(label_schema)
 
     def pre_process(self, image: np.ndarray) -> Tuple[Dict[str, np.ndarray], Dict[str, Any]]:
+        RequiredParamTypeCheck(image, "image", np.ndarray).check()
         return self.model.preprocess(image)
 
     def post_process(self, prediction: Dict[str, np.ndarray], metadata: Dict[str, Any]) -> AnnotationSceneEntity:
+        check_input_param_type(
+            RequiredParamTypeCheck(prediction, "prediction", Dict[str, np.ndarray]),
+            RequiredParamTypeCheck(metadata, "metadata", Dict[str, Any]),
+        )
         hard_prediction = self.model.postprocess(prediction, metadata)
 
         return self.converter.convert_to_annotation(hard_prediction, metadata)
 
     def forward(self, inputs: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+        RequiredParamTypeCheck(inputs, "inputs", Dict[str, np.ndarray]).check()
         return self.model.infer_sync(inputs)
 
 
 class OTEOpenVinoDataLoader(DataLoader):
     def __init__(self, dataset: DatasetEntity, inferencer: BaseInferencer):
+        check_input_param_type(
+            DatasetParamTypeCheck(dataset, "dataset"),
+            RequiredParamTypeCheck(inferencer, "inferencer", BaseInferencer),
+        )
         self.dataset = dataset
         self.inferencer = inferencer
 
     def __getitem__(self, index):
+        RequiredParamTypeCheck(index, "index", int).check()
         image = self.dataset[index].numpy
         annotation = self.dataset[index].annotation_scene
         inputs, metadata = self.inferencer.pre_process(image)
@@ -125,6 +151,9 @@ class OTEOpenVinoDataLoader(DataLoader):
 class OpenVINOSegmentationTask(IDeploymentTask, IInferenceTask, IEvaluationTask, IOptimizationTask):
     def __init__(self,
                  task_environment: TaskEnvironment):
+        RequiredParamTypeCheck(
+            task_environment, "task_environment", TaskEnvironment
+        ).check()
         self.task_environment = task_environment
         self.model = self.task_environment.model
         self.model_name = task_environment.model_template.model_template_id
@@ -145,6 +174,12 @@ class OpenVINOSegmentationTask(IDeploymentTask, IInferenceTask, IEvaluationTask,
     def infer(self,
               dataset: DatasetEntity,
               inference_parameters: Optional[InferenceParameters] = None) -> DatasetEntity:
+        check_input_param_type(
+            DatasetParamTypeCheck(dataset, "dataset"),
+            OptionalParamTypeCheck(
+                inference_parameters, "inference_parameters", InferenceParameters
+            ),
+        )
         update_progress_callback = default_progress_callback
         if inference_parameters is not None:
             update_progress_callback = inference_parameters.update_progress
@@ -158,6 +193,12 @@ class OpenVINOSegmentationTask(IDeploymentTask, IInferenceTask, IEvaluationTask,
     def evaluate(self,
                  output_result_set: ResultSetEntity,
                  evaluation_metric: Optional[str] = None):
+        check_input_param_type(
+            RequiredParamTypeCheck(
+                output_result_set, "output_result_set", ResultSetEntity
+            ),
+            OptionalParamTypeCheck(evaluation_metric, "evaluation_metric", str),
+        )
         logger.info('Computing mDice')
         metrics = MetricsHelper.compute_dice_averaged_over_pixels(
             output_result_set
@@ -168,6 +209,7 @@ class OpenVINOSegmentationTask(IDeploymentTask, IInferenceTask, IEvaluationTask,
 
     def deploy(self,
                output_model: ModelEntity) -> None:
+        RequiredParamTypeCheck(output_model, "output_model", ModelEntity).check()
         logger.info('Deploying the model')
 
         work_dir = os.path.dirname(demo.__file__)
@@ -213,6 +255,18 @@ class OpenVINOSegmentationTask(IDeploymentTask, IInferenceTask, IEvaluationTask,
                  dataset: DatasetEntity,
                  output_model: ModelEntity,
                  optimization_parameters: Optional[OptimizationParameters]):
+        check_input_param_type(
+            RequiredParamTypeCheck(
+                optimization_type, "optimization_type", OptimizationType
+            ),
+            DatasetParamTypeCheck(dataset, "dataset"),
+            RequiredParamTypeCheck(output_model, "output_model", ModelEntity),
+            ClassNameCheck(
+                optimization_parameters,
+                "optimization_parameters",
+                "OptimizationParameters",
+            ),
+        )
 
         if optimization_type is not OptimizationType.POT:
             raise ValueError("POT is the only supported optimization type for OpenVino models")

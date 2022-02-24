@@ -38,6 +38,12 @@ from ote_sdk.usecases.tasks.interfaces.export_interface import ExportType
 from ote_sdk.usecases.tasks.interfaces.optimization_interface import IOptimizationTask
 from ote_sdk.usecases.tasks.interfaces.optimization_interface import OptimizationParameters
 from ote_sdk.usecases.tasks.interfaces.optimization_interface import OptimizationType
+from ote_sdk.utils.argument_checks import (
+    DatasetParamTypeCheck,
+    OptionalParamTypeCheck,
+    RequiredParamTypeCheck,
+    check_input_param_type,
+)
 
 from mmseg.apis import train_segmentor
 from mmseg.apis.ote.apis.segmentation import OTESegmentationInferenceTask
@@ -61,6 +67,9 @@ class OTESegmentationNNCFTask(OTESegmentationInferenceTask, IOptimizationTask):
         """"
         Task for compressing object detection models using NNCF.
         """
+        RequiredParamTypeCheck(
+            task_environment, "task_environment", TaskEnvironment
+        ).check()
         self._val_dataloader = None
         self._compression_ctrl = None
         self._nncf_preset = "nncf_quantization"
@@ -174,6 +183,18 @@ class OTESegmentationNNCFTask(OTESegmentationInferenceTask, IOptimizationTask):
         output_model: ModelEntity,
         optimization_parameters: Optional[OptimizationParameters],
     ):
+        check_input_param_type(
+            RequiredParamTypeCheck(
+                optimization_type, "optimization_type", OptimizationType
+            ),
+            DatasetParamTypeCheck(dataset, "dataset"),
+            RequiredParamTypeCheck(output_model, "output_model", ModelEntity),
+            OptionalParamTypeCheck(
+                optimization_parameters,
+                "optimization_parameters",
+                OptimizationParameters,
+            ),
+        )
         if optimization_type is not OptimizationType.NNCF:
             raise RuntimeError("NNCF is the only supported optimization")
 
@@ -216,6 +237,10 @@ class OTESegmentationNNCFTask(OTESegmentationInferenceTask, IOptimizationTask):
         self._is_training = False
 
     def export(self, export_type: ExportType, output_model: ModelEntity):
+        check_input_param_type(
+            RequiredParamTypeCheck(export_type, "export_type", ExportType),
+            RequiredParamTypeCheck(output_model, "output_model", ModelEntity),
+        )
         if self._compression_ctrl is None:
             super().export(export_type, output_model)
         else:
@@ -225,6 +250,7 @@ class OTESegmentationNNCFTask(OTESegmentationInferenceTask, IOptimizationTask):
             self._model.enable_dynamic_graph_building()
 
     def save_model(self, output_model: ModelEntity):
+        RequiredParamTypeCheck(output_model, "output_model", ModelEntity).check()
         buffer = io.BytesIO()
         hyperparams = self._task_environment.get_hyper_parameters(OTESegmentationConfig)
         hyperparams_str = ids_to_strings(cfg_helper.convert(hyperparams, dict, enum_to_str=True))

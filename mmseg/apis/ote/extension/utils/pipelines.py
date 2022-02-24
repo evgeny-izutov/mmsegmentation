@@ -16,6 +16,8 @@ import numpy as np
 
 from mmseg.datasets.builder import PIPELINES
 from ..datasets import get_annotation_mmseg_format
+from ote_sdk.utils.argument_checks import RequiredParamTypeCheck
+from typing import Dict, Any
 
 
 @PIPELINES.register_module()
@@ -32,9 +34,11 @@ class LoadImageFromOTEDataset:
     """
 
     def __init__(self, to_float32: bool = False):
+        RequiredParamTypeCheck(to_float32, "to_float32", bool).check()
         self.to_float32 = to_float32
 
     def __call__(self, results):
+        RequiredParamTypeCheck(results, "results", Dict[str, Any]).check()
         dataset_item = results['dataset_item']
         img = dataset_item.numpy
         shape = img.shape
@@ -78,6 +82,7 @@ class LoadAnnotationFromOTEDataset:
         pass
 
     def __call__(self, results):
+        RequiredParamTypeCheck(results, "results", Dict[str, Any]).check()
         dataset_item = results['dataset_item']
         labels = results['ann_info']['labels']
 

@@ -14,11 +14,19 @@
 
 import time
 import warnings
+from typing import List, Sequence
 
 import mmcv
 import torch.distributed as dist
 from mmcv.runner.utils import get_host_info
 from mmcv.runner import RUNNERS, EpochBasedRunner, IterBasedRunner, IterLoader, get_dist_info
+from torch.utils.data.dataloader import DataLoader
+
+from ote_sdk.utils.argument_checks import (
+    OptionalParamTypeCheck,
+    RequiredParamTypeCheck,
+    check_input_param_type,
+)
 
 
 @RUNNERS.register_module()
@@ -51,6 +59,7 @@ class EpochRunnerWithCancel(EpochBasedRunner):
         return broadcast_obj[0]
 
     def train(self, data_loader, **kwargs):
+        RequiredParamTypeCheck(data_loader, "data_loader", DataLoader).check()
         self.model.train()
         self.mode = 'train'
         self.data_loader = data_loader
@@ -86,6 +95,10 @@ class IterBasedRunnerWithCancel(IterBasedRunner):
         self.should_stop = False
 
     def main_loop(self, workflow, iter_loaders, **kwargs):
+        check_input_param_type(
+            RequiredParamTypeCheck(workflow, "workflow", List[tuple]),
+            RequiredParamTypeCheck(iter_loaders, "iter_loaders", Sequence[IterLoader]),
+        )
         while self.iter < self._max_iters:
             for i, flow in enumerate(workflow):
                 self._inner_iter = 0
@@ -93,7 +106,7 @@ class IterBasedRunnerWithCancel(IterBasedRunner):
                 if not isinstance(mode, str) or not hasattr(self, mode):
                     raise ValueError(
                         'runner has no method named "{}" to run a workflow'.
-                        format(mode))
+                            format(mode))
                 iter_runner = getattr(self, mode)
                 for _ in range(iters):
                     if mode == 'train' and self.iter >= self._max_iters:
@@ -105,6 +118,11 @@ class IterBasedRunnerWithCancel(IterBasedRunner):
                         return
 
     def run(self, data_loaders, workflow, max_iters=None, **kwargs):
+        check_input_param_type(
+            RequiredParamTypeCheck(data_loaders, "data_loaders", Sequence[DataLoader]),
+            RequiredParamTypeCheck(workflow, "workflow", List[tuple]),
+            OptionalParamTypeCheck(max_iters, "max_iters", int),
+        )
         assert isinstance(data_loaders, list)
         assert mmcv.is_list_of(workflow, tuple)
         assert len(data_loaders) == len(workflow)
