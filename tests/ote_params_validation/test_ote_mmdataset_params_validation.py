@@ -366,14 +366,10 @@ class TestMMDatasetFunctionsInputParamsValidation:
             ("ann_file_path", unexpected_int),
             # Empty string is specified as "ann_file_path" parameter
             ("ann_file_path", ""),
-            # Path to non-json file is specified as "ann_file_path" parameter
-            ("ann_file_path", osp.join(tmp_dir.name, "non_json.jpg")),
             # Path with null character is specified as "ann_file_path" parameter
             ("ann_file_path", osp.join(tmp_dir.name, "\0fake_data.json")),
             # Path with non-printable character is specified as "ann_file_path" parameter
             ("ann_file_path", osp.join(tmp_dir.name, "\nfake_data.json")),
-            # Path to non-existing file is specified as "ann_file_path" parameter
-            ("ann_file_path", osp.join(tmp_dir.name, "non_existing.json")),
             # Unexpected integer is specified as "data_root_dir" parameter
             ("data_root_dir", unexpected_int),
             # Empty string is specified as "data_root_dir" parameter

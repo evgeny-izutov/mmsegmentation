@@ -353,7 +353,7 @@ def load_dataset_items(ann_file_path: str,
                        subset: Subset = Subset.NONE,
                        labels_list: Optional[List[LabelEntity]] = None):
     check_input_param_type(
-        FilePathCheck(ann_file_path, "ann_file_path", ["json"]),
+        DirectoryPathCheck(ann_file_path, "ann_file_path"),
         DirectoryPathCheck(data_root_dir, "data_root_dir"),
         RequiredParamTypeCheck(subset, "subset", Subset),
         OptionalParamTypeCheck(labels_list, "labels_list", List[LabelEntity]),
