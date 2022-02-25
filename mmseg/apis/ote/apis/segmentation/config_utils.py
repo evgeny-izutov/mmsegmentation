@@ -430,7 +430,7 @@ def patch_datasets(config: Config):
 
 def remove_from_config(config, key: str):
     check_input_param_type(
-        RequiredParamTypeCheck(config, "config", Config),
+        RequiredParamTypeCheck(config, "config", (Config, ConfigDict)),
         RequiredParamTypeCheck(key, "key", str),
     )
     if key in config:

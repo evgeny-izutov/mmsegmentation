@@ -21,7 +21,7 @@ from ote_sdk.usecases.reporting.time_monitor_callback import TimeMonitorCallback
 
 class TestCancelTrainingHook:
     @e2e_pytest_unit
-    def test_cancel_training_hook_initialization_params_validation(self):
+    def test_cancel_training_hook_init_params_validation(self):
         """
         <b>Description:</b>
         Check CancelTrainingHook object initialization parameters validation
@@ -94,7 +94,7 @@ class TestEnsureCorrectBestCheckpointHook:
 
 class TestOTELoggerHook:
     @e2e_pytest_unit
-    def test_ote_logger_hook_initialization_parameters_validation(self):
+    def test_ote_logger_hook_init_params_validation(self):
         """
         <b>Description:</b>
         Check OTELoggerHook object initialization parameters validation
@@ -180,7 +180,7 @@ class TestOTEProgressHook:
         return OTEProgressHook(time_monitor=self.time_monitor())
 
     @e2e_pytest_unit
-    def test_ote_progress_hook_initialization_parameters_validation(self):
+    def test_ote_progress_hook_init_params_validation(self):
         """
         <b>Description:</b>
         Check OTEProgressHook object initialization parameters validation

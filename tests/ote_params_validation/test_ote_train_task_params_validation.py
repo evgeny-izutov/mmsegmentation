@@ -34,7 +34,7 @@ class TestOTESegmentationTrainingTaskInputParamsValidation:
         )
 
     @e2e_pytest_unit
-    def test_train_task_input_params_validation(self):
+    def test_train_task_train_input_params_validation(self):
         """
         <b>Description:</b>
         Check OTESegmentationTrainingTask object "train" method input parameters validation
