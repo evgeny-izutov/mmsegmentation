@@ -302,7 +302,7 @@ def config_from_string(config_string: str) -> Config:
 def save_config_to_file(config: Config):
     """ Dump the full config to a file. Filename is 'config.py', it is saved in the current work_dir. """
 
-    RequiredParamTypeCheck(config, "config", Config).check()
+    RequiredParamTypeCheck(config, "config", (Config, ConfigDict)).check()
     filepath = os.path.join(config.work_dir, 'config.py')
     config_string = config_to_string(config)
     with open(filepath, 'w') as f:
