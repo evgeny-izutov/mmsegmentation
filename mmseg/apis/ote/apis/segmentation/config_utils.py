@@ -155,7 +155,7 @@ def set_hyperparams(config: Config, hyperparams: OTESegmentationConfig):
 
 def rescale_num_iterations(config: Config, schedule_scale: float):
     check_input_param_type(
-        RequiredParamTypeCheck(config, "config", Config),
+        RequiredParamTypeCheck(config, "config", (Config, ConfigDict)),
         RequiredParamTypeCheck(schedule_scale, "schedule_scale", float),
     )
     # rescale number of iterations for lr scheduler
