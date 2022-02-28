@@ -56,4 +56,4 @@ class TestOTEUtilsFunctionsInputParamsValidation:
         input parameter for "get_task_class" function
         """
         with pytest.raises(ValueError):
-            get_task_class(path=1)
+            get_task_class(path=1)  # type: ignore

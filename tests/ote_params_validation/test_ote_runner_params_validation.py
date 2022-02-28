@@ -53,7 +53,7 @@ class TestRunnersInputParamsValidation:
             model=self.MockModel(), logger=Logger(name="test logger")
         )
         with pytest.raises(ValueError):
-            runner.train(data_loader="unexpected string")
+            runner.train(data_loader="unexpected string")  # type: ignore
 
     @e2e_pytest_unit
     def test_iter_based_runner_with_cancel_main_loop_params_validation(self):

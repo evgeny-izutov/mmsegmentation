@@ -247,7 +247,7 @@ class TestOpenVINOSegmentationInferencerInputParamsValidation:
         OpenVINOSegmentationInferencer object initialization parameter
         """
         correct_values_dict = {
-            "hparams": OTESegmentationConfig("header"),
+            "hparams": OTESegmentationConfig(),
             "label_schema": LabelSchemaEntity(),
             "model_file": "some model data",
         }

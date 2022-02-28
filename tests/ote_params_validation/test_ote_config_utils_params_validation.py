@@ -115,7 +115,7 @@ class TestConfigUtilsInputParamsValidation:
         """
         correct_values_dict = {
             "config": Config(),
-            "hyperparams": OTESegmentationConfig(header="config header"),
+            "hyperparams": OTESegmentationConfig(),
         }
         unexpected_str = "unexpected string"
         unexpected_values = [
