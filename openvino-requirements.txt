@@ -1,2 +1,2 @@
--i https://test.pypi.org/simple/ openvino==2022.1.0.dev20220224
--i https://test.pypi.org/simple/ openvino-dev==2022.1.0.dev20220224
+openvino==2022.1.0.dev20220224
+openvino-dev==2022.1.0.dev20220224
