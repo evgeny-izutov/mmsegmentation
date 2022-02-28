@@ -51,7 +51,6 @@ from ote_sdk.usecases.tasks.interfaces.evaluate_interface import IEvaluationTask
 from ote_sdk.usecases.tasks.interfaces.inference_interface import IInferenceTask
 from ote_sdk.usecases.tasks.interfaces.optimization_interface import IOptimizationTask, OptimizationType
 from ote_sdk.utils.argument_checks import (
-    ClassNameCheck,
     DatasetParamTypeCheck,
     OptionalParamTypeCheck,
     RequiredParamTypeCheck,
@@ -261,12 +260,8 @@ class OpenVINOSegmentationTask(IDeploymentTask, IInferenceTask, IEvaluationTask,
             ),
             DatasetParamTypeCheck(dataset, "dataset"),
             RequiredParamTypeCheck(output_model, "output_model", ModelEntity),
-            ClassNameCheck(
-                optimization_parameters,
-                "optimization_parameters",
-                "OptimizationParameters",
-            ),
-        )
+            OptionalParamTypeCheck(
+                optimization_parameters, "optimization_parameters", OptimizationParameters))
 
         if optimization_type is not OptimizationType.POT:
             raise ValueError("POT is the only supported optimization type for OpenVino models")
