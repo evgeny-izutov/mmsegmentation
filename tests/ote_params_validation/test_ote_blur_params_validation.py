@@ -14,7 +14,7 @@ from ote_sdk.usecases.adapters.model_adapter import (
 )
 
 
-class TestDataSource(IDataSource):
+class MockDataSource(IDataSource):
     def __init__(self):
         pass
 
@@ -42,7 +42,7 @@ class TestBlurSegmentationParamsValidation:
         Test passes if ValueError exception is raised when unexpected type object is specified as
         BlurSegmentation object initialization parameter
         """
-        data_source = TestDataSource()
+        data_source = MockDataSource()
         model_adapter = ModelAdapter(data_source=data_source)
         correct_values_dict = {
             "model_adapter": model_adapter,
