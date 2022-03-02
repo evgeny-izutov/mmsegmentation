@@ -35,7 +35,7 @@ class BlurSegmentation(SegmentationModel):
     def __init__(self, model_adapter, configuration=None, preload=False):
         check_input_param_type(
             RequiredParamTypeCheck(model_adapter, "model_adapter", ModelAdapter),
-            OptionalParamTypeCheck(configuration, "configuration", ModelConfiguration),
+            OptionalParamTypeCheck(configuration, "configuration", dict),
             RequiredParamTypeCheck(preload, "preload", bool),
         )
         super().__init__(model_adapter, configuration, preload)
