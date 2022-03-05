@@ -1,3 +1,10 @@
+# Copyright (c) 2022 Google LLC. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright (c) 2020-2021 The MMSegmentation Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+
 def make_divisible(value, divisor, min_value=None, min_ratio=0.9):
     """Make divisible function.
 

@@ -32,7 +32,7 @@ terms are listed below.
 
 -------------------------------------------------------------
 
-4. CAPAttentionModule, PSPModule
+4. CAPAttentionModule, PSPModule, AsymmetricPositionAttentionModule
    Copyright (c) 2019 MendelXu
    SPDX-License-Identifier: Apache-2.0
 
@@ -116,12 +116,36 @@ terms are listed below.
 
 -------------------------------------------------------------
 
-18. Margin Calibration loss
+18. MarginCalibrationLoss
     Copyright (c) 2020 Litao Yu
     SPDX-License-Identifier: MIT
 
 -------------------------------------------------------------
 
-19. Polarized Self-Attention
-    Copyright (c) 2021 Dong Huang
+19. DropPath, trunc_normal_, VisionTransformer
+    Copyright (C) 2020 Ross Wightman
+    SPDX-License-Identifier: Apache-2.0
+
+-------------------------------------------------------------
+
+20. make_divisible
+    Copyright (c) 2022 Google LLC. All rights reserved.
+    SPDX-License-Identifier: Apache-2.0
+
+-------------------------------------------------------------
+
+21. EfficientNet
+    Copyright (c) 2020-2021 Luke Melas-Kyriazi
+    SPDX-License-Identifier: Apache-2.0
+
+-------------------------------------------------------------
+
+22. SpatialWeightingV2
+    Copyright (c) 2021 DeLightCMU
+    SPDX-License-Identifier: Apache-2.0
+
+-------------------------------------------------------------
+
+23. File tools/analyze_logs.py
+    Copyright (c) 2018-2022 OpenMMLab. All rights reserved.
     SPDX-License-Identifier: Apache-2.0
