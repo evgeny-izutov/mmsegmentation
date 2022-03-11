@@ -117,8 +117,7 @@ pip install -e . || exit 1
 MMSEGMENTATION_DIR=`realpath .`
 echo "export MMSEGMENTATION_DIR=${MMSEGMENTATION_DIR}" >> ${venv_dir}/bin/activate
 
-# Install NNCF
-pip install -r requirements/nncf_compression.txt || exit 1
+# Build NNCF extensions
 echo "Build NNCF extensions ..."
 python -c "import nncf"
 
