@@ -48,6 +48,8 @@ class BlurSegmentation(SegmentationModel):
         )
         hard_prediction = cv2.resize(hard_prediction, metadata['original_shape'][1::-1], 0, 0, interpolation=cv2.INTER_NEAREST)
         soft_prediction = cv2.resize(soft_prediction, metadata['original_shape'][1::-1], 0, 0, interpolation=cv2.INTER_NEAREST)
+
         metadata['soft_predictions'] = soft_prediction
+        metadata['feature_vector'] = None
 
         return hard_prediction

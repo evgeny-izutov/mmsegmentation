@@ -49,7 +49,7 @@ from mmseg.apis.ote.apis.segmentation.config_utils import (patch_config,
                                                            prepare_for_testing,
                                                            set_hyperparams)
 from mmseg.apis.ote.apis.segmentation.configuration import OTESegmentationConfig
-from mmseg.apis.ote.apis.segmentation.ote_utils import InferenceProgressCallback
+from mmseg.apis.ote.apis.segmentation.ote_utils import InferenceProgressCallback, get_activation_map
 from mmseg.datasets import build_dataloader, build_dataset
 from mmseg.models import build_segmentor
 from mmseg.parallel import MMDataCPU
@@ -222,17 +222,14 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
                     current_label_soft_prediction = soft_prediction[:, :, label_index]
                 else:
                     current_label_soft_prediction = soft_prediction
-                min_soft_score = np.min(current_label_soft_prediction)
-                max_soft_score = np.max(current_label_soft_prediction)
-                factor = 255.0 / (max_soft_score - min_soft_score + 1e-12)
-                result_media_numpy = (factor * (current_label_soft_prediction - min_soft_score)).astype(np.uint8)
 
+                class_act_map = get_activation_map(current_label_soft_prediction)
                 result_media = ResultMediaEntity(name=f'{label.name}',
                                                  type='Soft Prediction',
                                                  label=label,
                                                  annotation_scene=dataset_item.annotation_scene,
                                                  roi=dataset_item.roi,
-                                                 numpy=result_media_numpy)
+                                                 numpy=class_act_map)
                 dataset_item.append_metadata_item(result_media, model=self._task_environment.model)
 
     def _infer_segmentor(self,
