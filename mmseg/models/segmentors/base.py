@@ -183,6 +183,9 @@ class BaseSegmentor(nn.Module):
 
         output = self(**data_batch, **kwargs)
 
+        if self.test_cfg.get('return_repr_vector', False):
+            output = output[0]
+
         return output
 
     @staticmethod

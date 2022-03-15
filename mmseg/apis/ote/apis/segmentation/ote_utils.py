@@ -17,7 +17,6 @@ import importlib
 import yaml
 import time
 
-import cv2
 import numpy as np
 
 from ote_sdk.entities.train_parameters import UpdateProgressCallback
@@ -40,12 +39,11 @@ def get_activation_map(features):
     min_soft_score = np.min(features)
     max_soft_score = np.max(features)
     factor = 255.0 / (max_soft_score - min_soft_score + 1e-12)
+
     float_act_map = factor * (features - min_soft_score)
+    int_act_map = np.uint8(np.floor(float_act_map))
 
-    act_map = np.uint8(np.floor(float_act_map))
-    act_map = cv2.applyColorMap(act_map, cv2.COLORMAP_JET)
-
-    return act_map
+    return int_act_map
 
 
 class TrainingProgressCallback(TimeMonitorCallback):
