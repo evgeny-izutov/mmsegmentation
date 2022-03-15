@@ -210,7 +210,7 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
         dataset_item.append_annotations(annotations=annotations)
 
         if feature_vector is not None:
-            active_score = TensorEntity(name="representation_vector", numpy=feature_vector)
+            active_score = TensorEntity(name="representation_vector", numpy=feature_vector.reshape(-1))
             dataset_item.append_metadata_item(active_score, model=self._task_environment.model)
 
         if save_mask_visualization:
@@ -253,29 +253,13 @@ class OTESegmentationInferenceTask(IInferenceTask, IExportTask, IEvaluationTask,
         else:
             eval_model = MMDataCPU(model)
 
-        out_feature_vector = None
-
-        def dump_features_hook(mod, inp, out):
-            with torch.no_grad():
-                if len(out) == 1:
-                    feature_vector = torch.nn.functional.adaptive_avg_pool2d(out[0], (1, 1))
-                else:
-                    pooled_features = [torch.nn.functional.adaptive_avg_pool2d(fea_map, (1, 1))
-                                       for fea_map in out]
-                    feature_vector = torch.cat(pooled_features, dim=1)
-                assert feature_vector.size(0) == 1
-
-            nonlocal out_feature_vector
-            out_feature_vector = feature_vector.view(-1).detach().cpu().numpy()
-
         # Use a single gpu for testing. Set in both mm_val_dataloader and eval_model
-        with eval_model.module.backbone.register_forward_hook(dump_features_hook):
-            for data, dataset_item in zip(mm_val_dataloader, dataset):
-                with torch.no_grad():
-                    result = eval_model(return_loss=False, output_logits=True, **data)
-                assert len(result) == 1
+        for data, dataset_item in zip(mm_val_dataloader, dataset):
+            with torch.no_grad():
+                result, repr_vector = eval_model(return_loss=False, output_logits=True, **data)
+            assert len(result) == 1
 
-                self._add_predictions_to_dataset_item(result[0], out_feature_vector, dataset_item, save_mask_visualization)
+            self._add_predictions_to_dataset_item(result[0], repr_vector, dataset_item, save_mask_visualization)
 
     def evaluate(self, output_result_set: ResultSetEntity, evaluation_metric: Optional[str] = None):
         """ Computes performance on a resultset """

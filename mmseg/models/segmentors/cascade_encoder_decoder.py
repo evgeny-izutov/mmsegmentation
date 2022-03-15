@@ -5,7 +5,9 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-from torch import nn
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 from mmseg.core import add_prefix
 from mmseg.ops import resize
@@ -86,11 +88,11 @@ class CascadeEncoderDecoder(EncoderDecoder):
         """Encode images with backbone and decode into a semantic segmentation
         map of the same size as input."""
 
-        x = self.extract_feat(img)
+        features = self.extract_feat(img)
 
-        out = self.decode_head[0].forward_test(x, img_metas, self.test_cfg)
+        out = self.decode_head[0].forward_test(features, img_metas, self.test_cfg)
         for i in range(1, self.num_stages):
-            out = self.decode_head[i].forward_test(x, out, img_metas, self.test_cfg)
+            out = self.decode_head[i].forward_test(features, out, img_metas, self.test_cfg)
 
         out_scale = self.test_cfg.get('output_scale', None)
         if out_scale is not None and not self.training:
@@ -103,7 +105,16 @@ class CascadeEncoderDecoder(EncoderDecoder):
             align_corners=self.align_corners
         )
 
-        return out
+        repr_vector = None
+        if self.test_cfg.get('return_repr_vector', False):
+            if len(out) == 1:
+                repr_vector = F.adaptive_avg_pool2d(features[0], (1, 1)).cpu().numpy()
+            else:
+                pooled_features = [F.adaptive_avg_pool2d(fea_map, (1, 1))
+                                   for fea_map in features]
+                repr_vector = torch.cat(pooled_features, dim=1).cpu().numpy()
+
+        return out, repr_vector
 
     def _decode_head_forward_train(self, x, img_metas, pixel_weights=None, **kwargs):
         """Run forward function and calculate loss for decode head in
