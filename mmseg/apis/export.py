@@ -114,13 +114,18 @@ def export_to_onnx(model,
             'output': {1: 'batch', 2: 'height', 3: 'width'}
         }
 
+    output_names = ['output']
+    if model.test_cfg.get('return_repr_vector', False):
+        dynamic_axes['repr_vector'] = {1: 'batch'}
+        output_names.append('repr_vector')
+
     with torch.no_grad():
         torch.onnx.export(
             model,
             (img_list,),
             f=export_name,
             input_names=['input'],
-            output_names=['output'],
+            output_names=output_names,
             dynamic_axes=dynamic_axes,
             export_params=True,
             verbose=verbose,

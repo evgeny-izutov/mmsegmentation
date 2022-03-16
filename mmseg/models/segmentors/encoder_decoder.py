@@ -156,11 +156,11 @@ class EncoderDecoder(BaseSegmentor):
         repr_vector = None
         if self.test_cfg.get('return_repr_vector', False):
             if len(features) == 1:
-                repr_vector = F.adaptive_avg_pool2d(features[0], (1, 1)).cpu().numpy()
+                repr_vector = F.adaptive_avg_pool2d(features[0], (1, 1))
             else:
                 pooled_features = [F.adaptive_avg_pool2d(fea_map, (1, 1))
                                    for fea_map in features]
-                repr_vector = torch.cat(pooled_features, dim=1).cpu().numpy()
+                repr_vector = torch.cat(pooled_features, dim=1)
 
         return out, repr_vector
 
@@ -444,12 +444,16 @@ class EncoderDecoder(BaseSegmentor):
                 # our inference backend only support 4D output
                 seg_pred = seg_pred.unsqueeze(0)
 
-            return seg_pred
+            if self.test_cfg.get('return_repr_vector', False):
+                return seg_pred, repr_vector
+            else:
+                return seg_pred
 
         seg_pred = seg_pred.cpu().numpy()
         seg_pred = list(seg_pred)
 
         if self.test_cfg.get('return_repr_vector', False):
+            repr_vector = repr_vector.cpu().numpy()
             return seg_pred, repr_vector
         else:
             return seg_pred
