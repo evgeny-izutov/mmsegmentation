@@ -193,7 +193,6 @@ model = dict(
     test_cfg=dict(
         mode='whole',
         output_scale=10.0,
-        return_repr_vector=True,
     ),
 )
 
