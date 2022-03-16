@@ -330,6 +330,7 @@ class EncoderDecoder(BaseSegmentor):
         decode without padding.
         """
 
+        repr_vector = None
         h_stride, w_stride = self.test_cfg.stride
         h_crop, w_crop = self.test_cfg.crop_size
         batch_size, _, h_img, w_img = img.size()
@@ -352,6 +353,12 @@ class EncoderDecoder(BaseSegmentor):
                                (int(x1), int(preds.shape[3] - x2), int(y1),
                                 int(preds.shape[2] - y2)))
 
+                if crop_repr_vector is not None:
+                    if repr_vector is None:
+                        repr_vector = torch.zeros_like(crop_repr_vector)
+
+                    repr_vector += crop_repr_vector
+
                 count_mat[:, :, y1:y2, x1:x2] += 1
         assert (count_mat == 0).sum() == 0
         if torch.onnx.is_in_onnx_export():
@@ -368,9 +375,8 @@ class EncoderDecoder(BaseSegmentor):
                 align_corners=self.align_corners,
                 warning=False)
 
-        # TODO: fix repr_vector
-        repr_vector = None
-
+        if repr_vector is not None:
+            repr_vector = repr_vector / float(h_grids * w_grids)
 
         return preds, repr_vector
 
