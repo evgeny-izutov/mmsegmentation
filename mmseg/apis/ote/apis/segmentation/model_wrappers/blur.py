@@ -37,9 +37,26 @@ class BlurSegmentation(SegmentationModel):
 
         return parameters
 
+    def _check_io_number(self, number_of_inputs, number_of_outputs):
+        pass
+
+    def _get_outputs(self):
+        layer_name = 'output'
+        layer_shape = self.outputs[layer_name].shape
+
+        if len(layer_shape) == 3:
+            self.out_channels = 0
+        elif len(layer_shape) == 4:
+            self.out_channels = layer_shape[1]
+        else:
+            raise Exception("Unexpected output layer shape {}. Only 4D and 3D output layers are supported".format(layer_shape))
+
+        return layer_name
+
     def postprocess(self, outputs: Dict[str, np.ndarray], metadata: Dict[str, Any]):
         predictions = outputs[self.output_blob_name].squeeze()
         soft_prediction = np.transpose(predictions, axes=(1, 2, 0))
+        feature_vector = outputs['repr_vector']
 
         hard_prediction = create_hard_prediction_from_soft_prediction(
             soft_prediction=soft_prediction,
@@ -48,6 +65,8 @@ class BlurSegmentation(SegmentationModel):
         )
         hard_prediction = cv2.resize(hard_prediction, metadata['original_shape'][1::-1], 0, 0, interpolation=cv2.INTER_NEAREST)
         soft_prediction = cv2.resize(soft_prediction, metadata['original_shape'][1::-1], 0, 0, interpolation=cv2.INTER_NEAREST)
+
         metadata['soft_predictions'] = soft_prediction
+        metadata['feature_vector'] = feature_vector
 
         return hard_prediction

@@ -39,7 +39,9 @@ from ote_sdk.entities.model import (
     OptimizationMethod
 )
 from ote_sdk.entities.optimization_parameters import OptimizationParameters
+from ote_sdk.entities.tensor import TensorEntity
 from ote_sdk.entities.resultset import ResultSetEntity
+from ote_sdk.entities.result_media import ResultMediaEntity
 from ote_sdk.entities.task_environment import TaskEnvironment
 from ote_sdk.usecases.evaluation.metrics_helper import MetricsHelper
 from ote_sdk.usecases.exportable_code.inference import BaseInferencer
@@ -60,6 +62,7 @@ from ote_sdk.serialization.label_mapper import LabelSchemaMapper, label_schema_t
 from .configuration import OTESegmentationConfig
 from openvino.model_zoo.model_api.models import Model
 from openvino.model_zoo.model_api.adapters import create_core, OpenvinoAdapter
+from .ote_utils import get_activation_map
 from . import model_wrappers
 
 
@@ -98,8 +101,12 @@ class OpenVINOSegmentationInferencer(BaseInferencer):
 
     def post_process(self, prediction: Dict[str, np.ndarray], metadata: Dict[str, Any]) -> AnnotationSceneEntity:
         hard_prediction = self.model.postprocess(prediction, metadata)
+        soft_prediction = metadata['soft_predictions']
+        feature_vector = metadata['feature_vector']
 
-        return self.converter.convert_to_annotation(hard_prediction, metadata)
+        predicted_scene = self.converter.convert_to_annotation(hard_prediction, metadata)
+
+        return predicted_scene, soft_prediction, feature_vector
 
     def forward(self, inputs: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
         return self.model.infer_sync(inputs)
@@ -126,9 +133,12 @@ class OpenVINOSegmentationTask(IDeploymentTask, IInferenceTask, IEvaluationTask,
                  task_environment: TaskEnvironment):
         self.task_environment = task_environment
         self.model = self.task_environment.model
-        self.model_name = task_environment.model_template.model_template_id
+        self.model_name = self.task_environment.model_template.model_template_id
         self.inferencer = self.load_inferencer()
-        template_file_path = task_environment.model_template.model_template_path
+
+        labels = task_environment.get_labels(include_empty=False)
+        self._label_dictionary = dict(enumerate(labels, 1))
+        template_file_path = self.task_environment.model_template.model_template_path
         self._base_dir = os.path.abspath(os.path.dirname(template_file_path))
 
     @property
@@ -144,14 +154,43 @@ class OpenVINOSegmentationTask(IDeploymentTask, IInferenceTask, IEvaluationTask,
     def infer(self,
               dataset: DatasetEntity,
               inference_parameters: Optional[InferenceParameters] = None) -> DatasetEntity:
-        update_progress_callback = default_progress_callback
         if inference_parameters is not None:
             update_progress_callback = inference_parameters.update_progress
+            save_mask_visualization = not inference_parameters.is_evaluation
+        else:
+            update_progress_callback = default_progress_callback
+            save_mask_visualization = True
+
         dataset_size = len(dataset)
         for i, dataset_item in enumerate(dataset, 1):
-            predicted_scene = self.inferencer.predict(dataset_item.numpy)
+            predicted_scene, soft_prediction, feature_vector = self.inferencer.predict(dataset_item.numpy)
             dataset_item.append_annotations(predicted_scene.annotations)
+
+            if feature_vector is not None:
+                feature_vector_media = TensorEntity(name="representation_vector", numpy=feature_vector.reshape(-1))
+                dataset_item.append_metadata_item(feature_vector_media, model=self.model)
+
+            if save_mask_visualization:
+                for label_index, label in self._label_dictionary.items():
+                    if label_index == 0:
+                        continue
+
+                    if len(soft_prediction.shape) == 3:
+                        current_label_soft_prediction = soft_prediction[:, :, label_index]
+                    else:
+                        current_label_soft_prediction = soft_prediction
+
+                    class_act_map = get_activation_map(current_label_soft_prediction)
+                    result_media = ResultMediaEntity(name=f'{label.name}',
+                                                     type='Soft Prediction',
+                                                     label=label,
+                                                     annotation_scene=dataset_item.annotation_scene,
+                                                     roi=dataset_item.roi,
+                                                     numpy=class_act_map)
+                    dataset_item.append_metadata_item(result_media, model=self.model)
+
             update_progress_callback(int(i / dataset_size * 100))
+
         return dataset
 
     def evaluate(self,

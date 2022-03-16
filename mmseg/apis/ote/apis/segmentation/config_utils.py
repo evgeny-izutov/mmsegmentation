@@ -99,6 +99,10 @@ def patch_config(config: Config,
     set_data_classes(config, label_names)
     set_num_classes(config, len(label_names))
 
+    if 'test_cfg' not in config.model:
+        config.model.test_cfg = ConfigDict()
+    config.model.test_cfg.return_repr_vector = True
+
     set_distributed_mode(config, distributed)
     remove_from_config(config, 'img_norm_cfg')
 
