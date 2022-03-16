@@ -1,3 +1,10 @@
+# Copyright (c) 2018-2022 OpenMMLab. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright (c) 2020-2021 The MMSegmentation Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+
 """Modified from https://github.com/open-
 mmlab/mmdetection/blob/master/tools/analysis_tools/analyze_logs.py."""
 import argparse

@@ -263,7 +263,7 @@ def create_annotation_from_hard_seg_map(hard_seg_map: np.ndarray, labels: List[L
             annotations.append(Annotation(
                     Polygon(points=points),
                     labels=[ScoredLabel(label)],
-                    id=label_id,
+                    id=ID(f"{label_id:08}"),
             ))
 
     return annotations

@@ -1,3 +1,10 @@
+# Copyright (C) 2020 Ross Wightman
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright (c) 2020-2021 The MMSegmentation Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+
 """Modified from https://github.com/rwightman/pytorch-image-
 models/blob/master/timm/models/layers/drop.py."""
 

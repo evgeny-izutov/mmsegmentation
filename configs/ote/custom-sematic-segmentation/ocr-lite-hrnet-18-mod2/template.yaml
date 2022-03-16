@@ -15,7 +15,7 @@ framework: OTESegmentation v0.14.0
 entrypoints:
   base: mmseg.apis.ote.apis.segmentation.OTESegmentationTrainingTask
   openvino: mmseg.apis.ote.apis.segmentation.OpenVINOSegmentationTask
-  nncf: mmseg.apis.ote.apis.segmentation.OTESegmentationNNCFTask
+  # nncf: mmseg.apis.ote.apis.segmentation.OTESegmentationNNCFTask
 
 # Capabilities.
 capabilities:

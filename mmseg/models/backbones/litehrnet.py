@@ -1,7 +1,7 @@
-# Copyright (C) 2021 Dong Huang
+# Copyright (c) 2018-2020 Open-MMLab.
 # SPDX-License-Identifier: Apache-2.0
 #
-# Copyright (c) 2018-2020 Open-MMLab.
+# Copyright (c) 2021 DeLightCMU
 # SPDX-License-Identifier: Apache-2.0
 #
 # Copyright (C) 2021 Intel Corporation

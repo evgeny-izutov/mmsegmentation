@@ -128,7 +128,7 @@ model = dict(
     ),
     test_cfg=dict(
         mode='whole',
-        output_scale=5.0,
+        output_scale=10.0,
     ),
 )
 
