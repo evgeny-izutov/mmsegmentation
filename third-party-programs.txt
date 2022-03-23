@@ -149,3 +149,9 @@ terms are listed below.
 23. File tools/analyze_logs.py
     Copyright (c) 2018-2022 OpenMMLab. All rights reserved.
     SPDX-License-Identifier: Apache-2.0
+
+-------------------------------------------------------------
+
+24. File tools/get_flops.py
+    Copyright (c) 2019 Vladislav Sovrasov
+    SPDX-License-Identifier: MIT
