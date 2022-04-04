@@ -10,6 +10,7 @@ import functools
 import mmcv
 import numpy as np
 import torch
+from nncf.torch.dynamic_graph.context import no_nncf_trace
 
 
 def get_class_weight(class_weight):
@@ -171,18 +172,19 @@ class LossEqualizer:
         if len(self._smoothed_values) == 1:
             return losses
 
-        total_sum = sum(self._smoothed_values.values())
-        trg_value_default = total_sum / float(len(self._smoothed_values))
+        with no_nncf_trace():
+            total_sum = sum(self._smoothed_values.values())
+            trg_value_default = total_sum / float(len(self._smoothed_values))
 
-        weighted_losses = dict()
-        for loss_name, loss_value in losses.items():
-            if self.trg_ratios is not None:
-                assert loss_name in self.trg_ratios.keys()
-                trg_value = self.trg_ratios[loss_name] * total_sum
-            else:
-                trg_value = trg_value_default
+            weighted_losses = dict()
+            for loss_name, loss_value in losses.items():
+                if self.trg_ratios is not None:
+                    assert loss_name in self.trg_ratios.keys()
+                    trg_value = self.trg_ratios[loss_name] * total_sum
+                else:
+                    trg_value = trg_value_default
 
-            loss_weight = trg_value / self._smoothed_values[loss_name]
-            weighted_losses[loss_name] = loss_weight * loss_value
+                loss_weight = trg_value / self._smoothed_values[loss_name]
+                weighted_losses[loss_name] = loss_weight * loss_value
 
         return weighted_losses
