@@ -13,6 +13,7 @@ from .eval_hooks import (
     EvalPlusBeforeRunHook
 )
 from .metrics import eval_metrics, mean_dice, mean_fscore, mean_iou
+from .checkpoints import CustomCheckpointHook
 
 __all__ = [
     'DistEvalHook',
@@ -25,4 +26,5 @@ __all__ = [
     'mean_dice',
     'mean_fscore',
     'mean_iou',
+    'CustomCheckpointHook',
 ]
