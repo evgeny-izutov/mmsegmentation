@@ -197,6 +197,7 @@ class CustomDataset(Dataset):
                 False).
         """
 
+        print(f'\nCustomDataset::__getitem__ | self.test_mode : {self.test_mode} | idx: {idx}')
         if self.test_mode:
             return self.prepare_test_img(idx)
         else:

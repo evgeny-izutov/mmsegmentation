@@ -88,6 +88,7 @@ class CascadeEncoderDecoder(EncoderDecoder):
         """Encode images with backbone and decode into a semantic segmentation
         map of the same size as input."""
 
+        print(f'\nCascadeEncoderDecoder::encode_decode')
         features = self.extract_feat(img)
 
         out = self.decode_head[0].forward_test(features, img_metas, self.test_cfg)

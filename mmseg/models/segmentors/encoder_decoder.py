@@ -264,6 +264,7 @@ class EncoderDecoder(BaseSegmentor):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
+        print(f'\nEncoderDecoder::forward_train')
 
         losses = dict()
 
@@ -382,7 +383,8 @@ class EncoderDecoder(BaseSegmentor):
 
     def whole_inference(self, img, img_meta, rescale):
         """Inference with full image."""
-
+        
+        print(f'\EncoderDecoder::whole_inference')
         seg_logit, repr_vector = self.encode_decode(img, img_meta)
 
         if rescale:
@@ -415,6 +417,7 @@ class EncoderDecoder(BaseSegmentor):
         Returns:
             Tensor: The output segmentation map.
         """
+        print(f'\EncoderDecoder::inference')
 
         assert self.test_cfg.mode in ['slide', 'whole']
         ori_shape = img_meta[0]['ori_shape']

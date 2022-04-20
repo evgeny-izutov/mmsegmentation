@@ -115,8 +115,8 @@ def load_state_dict(module, in_state, class_maps=None, strict=False, logger=None
         err_msg = '\n'.join(err_msg)
         if strict:
             raise RuntimeError(err_msg)
-        elif logger is not None:
-            logger.warning(err_msg)
+        # elif logger is not None:
+        #     logger.warning(err_msg)
 
     ok_message = []
     if converted_pairs:
@@ -128,8 +128,8 @@ def load_state_dict(module, in_state, class_maps=None, strict=False, logger=None
 
     if len(ok_message) > 0 and rank == 0:
         ok_message = '\n'.join(ok_message)
-        if logger is not None:
-            logger.info(ok_message)
+        # if logger is not None:
+        #     logger.info(ok_message)
 
     warning_msg = []
     if shape_casted_pairs:
@@ -142,8 +142,8 @@ def load_state_dict(module, in_state, class_maps=None, strict=False, logger=None
     if len(warning_msg) > 0 and rank == 0:
         warning_msg.insert(0, 'The model and loaded state dict do not match exactly\n')
         warning_msg = '\n'.join(warning_msg)
-        if logger is not None:
-            logger.warning(warning_msg)
+        # if logger is not None:
+        #     logger.warning(warning_msg)
 
 
 def load_checkpoint(model,
