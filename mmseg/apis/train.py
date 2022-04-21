@@ -39,7 +39,8 @@ from mmseg.integration.nncf import is_accuracy_aware_training_set
 from mmseg.apis.fake_input import get_fake_input
 from mmseg.integration.nncf import CompressionHook
 from mmseg.integration.nncf import CheckpointHookBeforeTraining
-
+import faulthandler
+faulthandler.enable()
 
 def set_random_seed(seed, deterministic=False):
     """Set random seed.
