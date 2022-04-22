@@ -167,7 +167,7 @@ def train_segmentor(model,
         build_dataloader(
             ds,
             cfg.data.samples_per_gpu,
-            cfg.data.workers_per_gpu,
+            0,
             # cfg.gpus will be ignored if distributed
             len(cfg.gpu_ids),
             dist=distributed,
