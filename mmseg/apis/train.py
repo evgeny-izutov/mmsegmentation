@@ -14,6 +14,7 @@
 import random
 import warnings
 import os.path as osp
+import shutil
 
 import numpy as np
 import torch
@@ -261,6 +262,7 @@ def train_segmentor(model,
     if validate:
         eval_cfg = cfg.get('evaluation', {})
         eval_cfg['by_epoch'] = cfg.runner['type'] != 'IterBasedRunner'
+        eval_cfg['best_ckpt_path'] = cfg.get('resume_from')
         eval_hook = DistEvalHook if distributed else EvalHook
         if nncf_enable_compression:
             # disable saving best snapshot, because it works incorrectly for NNCF,
@@ -293,6 +295,7 @@ def train_segmentor(model,
     # load weights
     if cfg.resume_from:
         runner.resume(cfg.resume_from)
+        shutil.copy(cfg.resume_from, cfg.work_dir)
     elif cfg.load_from:
         load_checkpoint(
             model, cfg.load_from,
