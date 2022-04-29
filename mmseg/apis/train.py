@@ -262,7 +262,9 @@ def train_segmentor(model,
     if validate:
         eval_cfg = cfg.get('evaluation', {})
         eval_cfg['by_epoch'] = cfg.runner['type'] != 'IterBasedRunner'
-        eval_cfg['best_ckpt_path'] = cfg.get('resume_from')
+        if "resume_from" in cfg:
+            eval_cfg['best_ckpt_path'] = osp.join(cfg.work_dir,
+                osp.basename(cfg.get('resume_from')))
         eval_hook = DistEvalHook if distributed else EvalHook
         if nncf_enable_compression:
             # disable saving best snapshot, because it works incorrectly for NNCF,
@@ -296,6 +298,12 @@ def train_segmentor(model,
     if cfg.resume_from:
         runner.resume(cfg.resume_from)
         shutil.copy(cfg.resume_from, cfg.work_dir)
+        import mmcv
+        assert mmcv.__version__ == "1.3.1", \
+            "need to remove below code if mmcv version is higher than 1.3.1"
+        checkpoint = torch.load(cfg.resume_from)
+        runner.meta.setdefault('hook_msgs', {})
+        runner.meta['hook_msgs'].update(checkpoint['meta'].get('hook_msgs', {}))
     elif cfg.load_from:
         load_checkpoint(
             model, cfg.load_from,
