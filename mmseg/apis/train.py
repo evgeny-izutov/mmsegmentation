@@ -262,9 +262,13 @@ def train_segmentor(model,
     if validate:
         eval_cfg = cfg.get('evaluation', {})
         eval_cfg['by_epoch'] = cfg.runner['type'] != 'IterBasedRunner'
-        if "resume_from" in cfg:
-            eval_cfg['best_ckpt_path'] = osp.join(cfg.work_dir,
-                osp.basename(cfg.get('resume_from')))
+        if cfg.get('resume_from') is not None:
+            eval_cfg['best_ckpt_path'] = osp.join(
+                cfg.work_dir,
+                osp.basename(cfg['resume_from'])
+            )
+        else:
+            eval_cfg['best_ckpt_path'] = None
         eval_hook = DistEvalHook if distributed else EvalHook
         if nncf_enable_compression:
             # disable saving best snapshot, because it works incorrectly for NNCF,
