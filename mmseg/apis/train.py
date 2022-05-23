@@ -36,6 +36,7 @@ from mmseg.utils import prepare_mmseg_model_for_execution
 from mmseg.models import build_params_manager
 from mmseg.models.losses import MarginCalibrationLoss
 from mmseg.integration.nncf import wrap_nncf_model
+from mmseg.integration.nncf import AccuracyAwareLrUpdater
 from mmseg.integration.nncf import is_accuracy_aware_training_set
 from mmseg.apis.fake_input import get_fake_input
 from mmseg.integration.nncf import CompressionHook
@@ -243,12 +244,19 @@ def train_segmentor(model,
 
     # register training hooks
     runner.register_training_hooks(
-        cfg.lr_config,
+        None,
         optimizer_config,
         cfg.checkpoint_config,
         cfg.log_config,
         cfg.get('momentum_config', None)
     )
+    # register lr updater hook
+    policy_type = cfg.lr_config.pop('policy')
+    if policy_type == policy_type.lower():
+        policy_type = policy_type.title()
+    cfg.lr_config['type'] = policy_type + 'LrUpdaterHook'
+    lr_updater_hook = build_from_cfg(cfg.lr_config, HOOKS)
+    runner.register_lr_hook(lr_updater_hook)
 
     # register parameters manager hook
     params_manager_cfg = cfg.get('params_config', None)
@@ -321,7 +329,8 @@ def train_segmentor(model,
     if nncf_is_acc_aware_training_set:
         def configure_optimizers_fn():
             optimizer = build_optimizer(runner.model, cfg.optimizer)
-            return optimizer, None
+            lr_scheduler = AccuracyAwareLrUpdater(lr_updater_hook, runner, optimizer)
+            return optimizer, lr_scheduler
 
         runner.run(
             data_loaders,

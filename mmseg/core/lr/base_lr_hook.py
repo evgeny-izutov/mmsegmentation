@@ -131,6 +131,10 @@ class BaseLrUpdaterHook(Hook, metaclass=ABCMeta):
             self.base_lr = [
                 group['initial_lr'] for group in runner.optimizer.param_groups
             ]
+        self.bad_count = 0
+        self.last_iter = 0
+        self.current_lr = None
+        self.best_score = self.init_value_map[self.rule]
 
     def _init_states(self, runner):
         if self.by_epoch:
