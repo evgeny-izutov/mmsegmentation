@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 This project is based on [mmsegmentation project by OpenMMLab](https://github.com/open-mmlab/mmsegmentation).
 With respect to it we made the following changes.
 
+## \[2022-05-09\]
+### Added
+* HPO support
+* Feature dump support
+* NNCF support
+* Lite-HRNet-18-mod2 (middle)
+* Lite-HRNet-x-mod3 (heavy)
+
+### Removed
+* Tasks & model templates (moved to OTE)
+
+
 ## \[2021-12-27\]
 ### Added
 - Support of datasets: `COCO Stuff`, `Kvasir-Seg`, `Kvasir-Instrument`.
