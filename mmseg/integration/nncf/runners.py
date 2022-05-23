@@ -39,7 +39,7 @@ class AccuracyAwareRunner(EpochBasedRunner):
         self.logger.warning('Note that the workflow and max_epochs parameters '
                             'are not used in NNCF-based accuracy-aware training')
         acc_aware_training_loop = create_accuracy_aware_training_loop(nncf_config,
-                                                                      compression_ctrl)
+                                                                      compression_ctrl, verbose=False)
         # taking only the first data loader for NNCF training
         self.train_data_loader = data_loaders[0]
         # Maximum possible number of iterations, needs for progress tracking
