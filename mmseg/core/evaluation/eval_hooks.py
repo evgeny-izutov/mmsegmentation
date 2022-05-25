@@ -29,10 +29,12 @@ class EvalHook(_EvalHook):
     greater_keys = ['mIoU', 'mAcc', 'aAcc', 'mDice']
 
     def __init__(self, *args, by_epoch=False, efficient_test=False, **kwargs):
+        best_ckpt_path = kwargs.get("best_ckpt_path")
+        if "best_ckpt_path" in kwargs:
+            kwargs.pop("best_ckpt_path")
         super().__init__(*args, by_epoch=by_epoch, **kwargs)
         self.efficient_test = efficient_test
-        if "best_ckpt_path" in kwargs:
-            self.best_ckpt_path = kwargs["best_ckpt_path"]
+        self.best_ckpt_path = best_ckpt_path
 
     def _do_evaluate(self, runner):
         """perform evaluation and save ckpt."""
@@ -85,10 +87,12 @@ class DistEvalHook(_DistEvalHook):
     greater_keys = ['mIoU', 'mAcc', 'aAcc', 'mDice']
 
     def __init__(self, *args, by_epoch=False, efficient_test=False, **kwargs):
+        best_ckpt_path = kwargs.get("best_ckpt_path")
+        if "best_ckpt_path" in kwargs:
+            kwargs.pop("best_ckpt_path")
         super().__init__(*args, by_epoch=by_epoch, **kwargs)
         self.efficient_test = efficient_test
-        if "best_ckpt_path" in kwargs:
-            self.best_ckpt_path = kwargs["best_ckpt_path"]
+        self.best_ckpt_path = best_ckpt_path
 
     def _do_evaluate(self, runner):
         """perform evaluation and save ckpt."""
