@@ -34,7 +34,7 @@ class MultiLabelHead(MultiLabelLinearClsHead):
         if pre_stages and isinstance(pre_stages, list):
             # Classification Head
             self.incre_modules, self.downsamp_modules, \
-                self.final_layer = self._make_head(pre_stages)
+                self.final_layer = self._make_head(pre_stages, kwargs['in_channels'])
 
     def init_weights(self):
         normal_init(self.incre_modules, mean=0, std=0.01, bias=0)
@@ -60,12 +60,13 @@ class MultiLabelHead(MultiLabelLinearClsHead):
 
         return nn.Sequential(*layers)
 
-    def _make_head(self, pre_stage_channels):
+    def _make_head(self, pre_stage_channels, classifier_in_channels):
         BN_MOMENTUM = 0.1
         head_block = Bottleneck
-        head_channels = [32, 64, 128, 256]
-        # head_channels = [16, 32, 64, 128]
-
+        if classifier_in_channels == 1024:
+            head_channels = [16, 32, 64, 128]
+        elif classifier_in_channels == 2048:
+            head_channels = [32, 64, 128, 256]
 
         # Increasing the #channels on each resolution 
         # from C, 2C, 4C, 8C to 128, 256, 512, 1024
@@ -101,12 +102,12 @@ class MultiLabelHead(MultiLabelLinearClsHead):
         final_layer = nn.Sequential(
             nn.Conv2d(
                 in_channels=head_channels[3] * head_block.expansion,
-                out_channels=2048,
+                out_channels=2048 if classifier_in_channels == 2048 else 1024,
                 kernel_size=1,
                 stride=1,
                 padding=0
             ),
-            nn.BatchNorm2d(2048, momentum=BN_MOMENTUM),
+            nn.BatchNorm2d(2048 if classifier_in_channels == 2048 else 1024, momentum=BN_MOMENTUM),
             nn.ReLU(inplace=True)
         )
 
