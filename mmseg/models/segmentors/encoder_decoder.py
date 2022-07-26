@@ -320,6 +320,7 @@ class EncoderDecoder(BaseSegmentor):
         If h_crop > h_img or w_crop > w_img, the small patch will be used to
         decode without padding.
         """
+        # TODO[EUGENE]: Not used for MPA seg, and need to find a way to aggregate per-tile feature vec and map
         h_stride, w_stride = self.test_cfg.stride
         h_crop, w_crop = self.test_cfg.crop_size
         batch_size, _, h_img, w_img = img.size()
@@ -337,8 +338,6 @@ class EncoderDecoder(BaseSegmentor):
                 y1 = max(y2 - h_crop, 0)
                 x1 = max(x2 - w_crop, 0)
                 crop_img = img[:, :, y1:y2, x1:x2]
-                # TODO[EUGENE]: slide_inference is not used at the moment, but need to find a way to aggregate tile
-                #               feature vectors and tile saliency maps
                 crop_seg_logit = self.encode_decode(crop_img, img_meta)
                 preds += F.pad(crop_seg_logit,
                                (int(x1), int(preds.shape[3] - x2), int(y1),
