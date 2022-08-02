@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from mmcv import ConfigDict
 
-from mmseg.core import add_prefix
+from mmseg.core import add_prefix, FeatureVectorHook, SaliencyMapHook
 from mmseg.ops import resize
 from mmseg.models.losses import LossEqualizer
 from .. import builder
@@ -49,7 +49,7 @@ class EncoderDecoder(BaseSegmentor):
         self._init_train_components(self.train_cfg)
 
         self.init_weights(pretrained=pretrained)
-
+        self.feature_maps = None
         assert self.with_decode_head
 
     def _init_decode_head(self, decode_head):
@@ -128,6 +128,9 @@ class EncoderDecoder(BaseSegmentor):
         """Extract features from images."""
 
         x = self.backbone(img)
+
+        if torch.onnx.is_in_onnx_export():
+            self.feature_maps = x
 
         if self.with_neck:
             x = self.neck(x)
@@ -233,8 +236,7 @@ class EncoderDecoder(BaseSegmentor):
 
     def forward_dummy(self, img):
         """Dummy forward function."""
-        seg_logit, _ = self.encode_decode(img, None)
-
+        seg_logit = self.encode_decode(img, None)
         return seg_logit
 
     def forward_train(self, img, img_metas, gt_semantic_seg, aux_img=None, pixel_weights=None, **kwargs):
@@ -427,10 +429,12 @@ class EncoderDecoder(BaseSegmentor):
             seg_pred = seg_logit.argmax(dim=1)
 
         if torch.onnx.is_in_onnx_export():
+            feature_vector = FeatureVectorHook.func(self.feature_maps)
+            saliency_map = SaliencyMapHook.func(self.feature_maps)
             if not output_logits:
                 # our inference backend only support 4D output
                 seg_pred = seg_pred.unsqueeze(0)
-            return seg_pred
+            return seg_pred, feature_vector, saliency_map
 
         seg_pred = seg_pred.cpu().numpy()
         seg_pred = list(seg_pred)
