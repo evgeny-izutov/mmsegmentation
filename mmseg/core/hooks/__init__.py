@@ -4,8 +4,11 @@
 
 from .ema import IterBasedEMAHook
 from .optimizer import CustomOptimizerHook
+from .auxiliary_hooks import FeatureVectorHook, SaliencyMapHook
 
 __all__ = [
     'IterBasedEMAHook',
     'CustomOptimizerHook',
+    'FeatureVectorHook',
+    'SaliencyMapHook'
 ]

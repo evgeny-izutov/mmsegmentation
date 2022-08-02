@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from mmcv import ConfigDict
 
-from mmseg.core import add_prefix
+from mmseg.core import add_prefix, FeatureVectorHook, SaliencyMapHook
 from mmseg.ops import resize
 from mmseg.models.losses import LossEqualizer
 from .. import builder
@@ -49,7 +49,7 @@ class EncoderDecoder(BaseSegmentor):
         self._init_train_components(self.train_cfg)
 
         self.init_weights(pretrained=pretrained)
-
+        self.feature_maps = None
         assert self.with_decode_head
 
     def _init_decode_head(self, decode_head):
@@ -129,6 +129,9 @@ class EncoderDecoder(BaseSegmentor):
 
         x = self.backbone(img)
 
+        if torch.onnx.is_in_onnx_export():
+            self.feature_maps = x
+
         if self.with_neck:
             x = self.neck(x)
 
@@ -153,16 +156,7 @@ class EncoderDecoder(BaseSegmentor):
             align_corners=self.align_corners
         )
 
-        repr_vector = None
-        if self.test_cfg.get('return_repr_vector', False):
-            if len(features) == 1:
-                repr_vector = F.adaptive_avg_pool2d(features[0], (1, 1))
-            else:
-                pooled_features = [F.adaptive_avg_pool2d(fea_map, (1, 1))
-                                   for fea_map in features]
-                repr_vector = torch.cat(pooled_features, dim=1)
-
-        return out, repr_vector
+        return out
 
     def _decode_head_forward_train(self, x, img_metas, pixel_weights=None, **kwargs):
         """Run forward function and calculate loss for decode head in training."""
@@ -242,8 +236,7 @@ class EncoderDecoder(BaseSegmentor):
 
     def forward_dummy(self, img):
         """Dummy forward function."""
-        seg_logit, _ = self.encode_decode(img, None)
-
+        seg_logit = self.encode_decode(img, None)
         return seg_logit
 
     def forward_train(self, img, img_metas, gt_semantic_seg, aux_img=None, pixel_weights=None, **kwargs):
@@ -329,8 +322,7 @@ class EncoderDecoder(BaseSegmentor):
         If h_crop > h_img or w_crop > w_img, the small patch will be used to
         decode without padding.
         """
-
-        repr_vector = None
+        # TODO[EUGENE]: Not used for MPA seg, and need to find a way to aggregate per-tile feature vec and map
         h_stride, w_stride = self.test_cfg.stride
         h_crop, w_crop = self.test_cfg.crop_size
         batch_size, _, h_img, w_img = img.size()
@@ -348,16 +340,10 @@ class EncoderDecoder(BaseSegmentor):
                 y1 = max(y2 - h_crop, 0)
                 x1 = max(x2 - w_crop, 0)
                 crop_img = img[:, :, y1:y2, x1:x2]
-                crop_seg_logit, crop_repr_vector = self.encode_decode(crop_img, img_meta)
+                crop_seg_logit = self.encode_decode(crop_img, img_meta)
                 preds += F.pad(crop_seg_logit,
                                (int(x1), int(preds.shape[3] - x2), int(y1),
                                 int(preds.shape[2] - y2)))
-
-                if crop_repr_vector is not None:
-                    if repr_vector is None:
-                        repr_vector = torch.zeros_like(crop_repr_vector)
-
-                    repr_vector += crop_repr_vector
 
                 count_mat[:, :, y1:y2, x1:x2] += 1
         assert (count_mat == 0).sum() == 0
@@ -375,15 +361,12 @@ class EncoderDecoder(BaseSegmentor):
                 align_corners=self.align_corners,
                 warning=False)
 
-        if repr_vector is not None:
-            repr_vector = repr_vector / float(h_grids * w_grids)
-
-        return preds, repr_vector
+        return preds
 
     def whole_inference(self, img, img_meta, rescale):
         """Inference with full image."""
 
-        seg_logit, repr_vector = self.encode_decode(img, img_meta)
+        seg_logit = self.encode_decode(img, img_meta)
 
         if rescale:
             # support dynamic shape for onnx
@@ -398,7 +381,7 @@ class EncoderDecoder(BaseSegmentor):
                 align_corners=self.align_corners,
                 warning=False)
 
-        return seg_logit, repr_vector
+        return seg_logit
 
     def inference(self, img, img_meta, rescale):
         """Inference with slide/whole style.
@@ -420,9 +403,9 @@ class EncoderDecoder(BaseSegmentor):
         ori_shape = img_meta[0]['ori_shape']
         assert all(_['ori_shape'] == ori_shape for _ in img_meta)
         if self.test_cfg.mode == 'slide':
-            seg_logit, repr_vector = self.slide_inference(img, img_meta, rescale)
+            seg_logit = self.slide_inference(img, img_meta, rescale)
         else:
-            seg_logit, repr_vector = self.whole_inference(img, img_meta, rescale)
+            seg_logit = self.whole_inference(img, img_meta, rescale)
         output = F.softmax(seg_logit, dim=1)
 
         flip = img_meta[0]['flip']
@@ -434,35 +417,29 @@ class EncoderDecoder(BaseSegmentor):
             elif flip_direction == 'vertical':
                 output = output.flip(dims=(2, ))
 
-        return output, repr_vector
+        return output
 
     def simple_test(self, img, img_meta, rescale=True, output_logits=False):
         """Simple test with single image."""
 
-        seg_logit, repr_vector = self.inference(img, img_meta, rescale)
+        seg_logit = self.inference(img, img_meta, rescale)
         if output_logits:
             seg_pred = seg_logit
         else:
             seg_pred = seg_logit.argmax(dim=1)
 
         if torch.onnx.is_in_onnx_export():
+            feature_vector = FeatureVectorHook.func(self.feature_maps)
+            saliency_map = SaliencyMapHook.func(self.feature_maps)
             if not output_logits:
                 # our inference backend only support 4D output
                 seg_pred = seg_pred.unsqueeze(0)
-
-            if self.test_cfg.get('return_repr_vector', False):
-                return seg_pred, repr_vector
-            else:
-                return seg_pred
+            return seg_pred, feature_vector, saliency_map
 
         seg_pred = seg_pred.cpu().numpy()
         seg_pred = list(seg_pred)
 
-        if self.test_cfg.get('return_repr_vector', False):
-            repr_vector = repr_vector.cpu().numpy()
-            return seg_pred, repr_vector
-        else:
-            return seg_pred
+        return seg_pred
 
     def aug_test(self, imgs, img_metas, rescale=True):
         """Test with augmentations.
@@ -473,7 +450,7 @@ class EncoderDecoder(BaseSegmentor):
         # aug_test rescale all imgs back to ori_shape for now
         assert rescale
         # to save memory, we get augmented seg logit inplace
-        seg_logit, repr_vector = self.inference(imgs[0], img_metas[0], rescale)
+        seg_logit = self.inference(imgs[0], img_metas[0], rescale)
         for i in range(1, len(imgs)):
             cur_seg_logit, _ = self.inference(imgs[i], img_metas[i], rescale)
             seg_logit += cur_seg_logit
@@ -483,7 +460,4 @@ class EncoderDecoder(BaseSegmentor):
         seg_pred = seg_pred.cpu().numpy()
         seg_pred = list(seg_pred)  # unravel batch dim
 
-        if self.test_cfg.get('return_repr_vector', False):
-            return seg_pred, repr_vector
-        else:
-            return seg_pred
+        return seg_pred

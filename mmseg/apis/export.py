@@ -115,9 +115,8 @@ def export_to_onnx(model,
         }
 
     output_names = ['output']
-    if model.test_cfg.get('return_repr_vector', False):
-        dynamic_axes['repr_vector'] = {1: 'batch'}
-        output_names.append('repr_vector')
+    
+    output_names.extend(['feature_vector', 'saliency_map'])
 
     with torch.no_grad():
         torch.onnx.export(
