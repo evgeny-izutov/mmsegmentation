@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from mmcv import ConfigDict
 
-from mmseg.core import add_prefix, FeatureVectorHook, SaliencyMapHook
+from mmseg.core import add_prefix, FeatureVectorHook
 from mmseg.ops import resize
 from mmseg.models.losses import LossEqualizer
 from .. import builder
@@ -430,11 +430,10 @@ class EncoderDecoder(BaseSegmentor):
 
         if torch.onnx.is_in_onnx_export():
             feature_vector = FeatureVectorHook.func(self.feature_maps)
-            saliency_map = SaliencyMapHook.func(self.feature_maps)
             if not output_logits:
                 # our inference backend only support 4D output
                 seg_pred = seg_pred.unsqueeze(0)
-            return seg_pred, feature_vector, saliency_map
+            return seg_pred, feature_vector
 
         seg_pred = seg_pred.cpu().numpy()
         seg_pred = list(seg_pred)
