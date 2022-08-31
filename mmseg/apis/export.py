@@ -115,8 +115,8 @@ def export_to_onnx(model,
         }
 
     output_names = ['output']
-    
-    output_names.extend(['feature_vector', 'saliency_map'])
+
+    output_names.extend(['feature_vector'])
 
     with torch.no_grad():
         torch.onnx.export(
