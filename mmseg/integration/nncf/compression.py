@@ -262,6 +262,7 @@ def wrap_nncf_model(model,
     if 'log_dir' in nncf_config:
         os.makedirs(nncf_config['log_dir'], exist_ok=True)
 
+    #model.cuda()
     compression_ctrl, model = create_compressed_model(model,
                                                       nncf_config,
                                                       dummy_forward_fn=dummy_forward,
