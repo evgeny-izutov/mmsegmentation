@@ -231,7 +231,6 @@ def train_segmentor(model,
     )
 
     # prepare optimizer config
-    #breakpoint()
     if 'type' not in cfg.optimizer_config:
         optimizer_config = CustomOptimizerHook(**cfg.optimizer_config)
     else:
