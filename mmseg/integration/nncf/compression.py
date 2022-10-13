@@ -177,9 +177,10 @@ def wrap_nncf_model(model,
     if dataloader_for_init:
         wrapped_loader = MMInitializeDataLoader(dataloader_for_init)
         eval_fn = model_eval_fn if is_accuracy_aware else None
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         nncf_config = register_default_init_args(nncf_config, wrapped_loader,
                                                  model_eval_fn=eval_fn,
-                                                 device=next(model.parameters()).device)
+                                                 device=device)
 
     if cfg.get('resume_from'):
         checkpoint_path = cfg.get('resume_from')
