@@ -143,15 +143,15 @@ def get_extensions():
 
 if __name__ == '__main__':
     setup(
-        name='mmsegmentation',
-        version=get_version(),
-        description='Open MMLab Semantic Segmentation Toolbox and Benchmark',
+        name='otxseg',
+        version='0.3.0',
+        description='Temporary OTX fork of MMSegmenation Semantic Segmentation Toolbox and Benchmark',
         long_description=readme(),
         long_description_content_type='text/markdown',
-        author='MMSegmentation Authors',
-        author_email='openmmlab@gmail.com',
+        author='OpenMMLab, Intel',
+        author_email='songki.choi@intel.com',
         keywords='computer vision, semantic segmentation',
-        url='http://github.com/open-mmlab/mmsegmentation',
+        url='http://github.com/openvinotoolkit/mmsegmentation',
         packages=find_packages(exclude=('configs', 'tools', 'demo')),
         include_package_data=True,
         classifiers=[
