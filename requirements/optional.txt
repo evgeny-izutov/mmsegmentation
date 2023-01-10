@@ -1,3 +1,2 @@
 tensorboard
 scipy
-sklearn
