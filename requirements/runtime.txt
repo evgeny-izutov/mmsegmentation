@@ -5,7 +5,7 @@ mmcv-full
 numpy
 six
 terminaltables
-torch>=1.7.1,<=1.9.0
+torch>=1.13.1
 torchvision>=0.8.1,<=0.10.0
 tqdm
 onnx>=1.7.0
