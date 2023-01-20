@@ -280,3 +280,24 @@ def get_uncompressed_model(module):
     if isinstance(module, NNCFNetwork):
         return module.get_nncf_wrapped_model()
     return module
+
+
+class AccuracyAwareLrUpdater:
+    def __init__(self, lr_hook, runner, optimizer=None):
+        self._lr_hook = lr_hook
+        self._runner = runner
+        if optimizer:
+            runner.optimizer = optimizer
+        self._lr_hook.before_run(runner)
+        self._lr_hook.warmup_iters = 0
+
+    def step(self, *args, **kwargs):
+        pass
+
+    @property
+    def base_lrs(self):
+        return self._lr_hook.base_lr
+
+    @base_lrs.setter
+    def base_lrs(self, value):
+        self._lr_hook.base_lr = value

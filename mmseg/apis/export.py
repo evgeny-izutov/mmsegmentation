@@ -156,7 +156,7 @@ def _get_mo_cmd():
 
 
 def export_to_openvino(cfg, onnx_model_path, output_dir_path, input_shape=None,
-                       input_format='rgb', precision='FP32'):
+                       input_format='rgb', precision='FP32', pruning_transformation=False):
     cfg.model.pretrained = None
     cfg.data.test.test_mode = True
 
@@ -191,7 +191,8 @@ def export_to_openvino(cfg, onnx_model_path, output_dir_path, input_shape=None,
     if normalize['to_rgb'] and input_format.lower() == 'bgr' or \
             not normalize['to_rgb'] and input_format.lower() == 'rgb':
         command_line.append('--reverse_input_channels')
-
+    if pruning_transformation:
+        command_line.extend(['--transform', 'Pruning'])
     run(command_line, shell=False, check=True)
 
 
@@ -238,7 +239,7 @@ def _get_fake_inputs(input_shape, num_classes):
 
 
 def export_model(model, config, output_dir, target='openvino', onnx_opset=11,
-                 input_format='rgb', precision='FP32', output_logits=False):
+                 input_format='rgb', precision='FP32', output_logits=False, pruning_transformation=False):
     assert onnx_opset in available_opsets
 
     if isinstance(model, (torch.nn.DataParallel, torch.nn.parallel.DistributedDataParallel)):
@@ -276,6 +277,7 @@ def export_model(model, config, output_dir, target='openvino', onnx_opset=11,
                            output_dir,
                            input_shape,
                            input_format,
-                           precision)
+                           precision,
+                           pruning_transformation=pruning_transformation)
     else:
         check_onnx_model(onnx_model_path)

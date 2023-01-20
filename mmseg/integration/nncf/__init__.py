@@ -10,6 +10,7 @@ from .compression import (
     is_checkpoint_nncf,
     wrap_nncf_model,
     is_state_nncf,
+    AccuracyAwareLrUpdater,
 )
 
 from .compression_hooks import CompressionHook, CheckpointHookBeforeTraining
@@ -23,6 +24,7 @@ from .utils import (
 
 __all__ = [
     'AccuracyAwareRunner',
+    'AccuracyAwareLrUpdater',
     'CheckpointHookBeforeTraining',
     'CompressionHook',
     'check_nncf_is_enabled',

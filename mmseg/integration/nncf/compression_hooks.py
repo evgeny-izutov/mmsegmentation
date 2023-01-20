@@ -16,6 +16,8 @@ class CompressionHook(Hook):
 
     def after_train_epoch(self, runner):
         self.compression_ctrl.scheduler.epoch_step()
+        if runner.rank == 0:
+            runner.logger.info(self.compression_ctrl.statistics().to_str())
 
     def before_run(self, runner):
         if runner.rank == 0:
