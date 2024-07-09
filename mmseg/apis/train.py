@@ -18,7 +18,7 @@ import shutil
 
 import numpy as np
 import torch
-from mmcv.runner import HOOKS, build_optimizer, build_runner
+from mmcv.runner import HOOKS, build_optimizer, build_runner, Fp16OptimizerHook
 from mmcv.utils import build_from_cfg
 
 from mmseg.core import (
@@ -86,7 +86,7 @@ def needed_collect_dataset_stat(cfg):
             losses = head.loss_decode
             if not isinstance(losses, (tuple, list)):
                 losses = [losses]
-        
+
             for loss in losses:
                 if loss.type == 'MarginCalibrationLoss':
                     return True
@@ -234,7 +234,12 @@ def train_segmentor(model,
     if 'type' not in cfg.optimizer_config:
         optimizer_config = CustomOptimizerHook(**cfg.optimizer_config)
     else:
-        optimizer_config = cfg.optimizer_config
+        if cfg.optimizer_config['type'] == 'Fp16OptimizerHook':
+            config = cfg.optimizer_config
+            config.pop('type')
+            optimizer_config = Fp16OptimizerHook(**config)
+        else:
+            optimizer_config = cfg.optimizer_config
 
     # register EMA hook
     ema_cfg = cfg.get('ema_config', None)

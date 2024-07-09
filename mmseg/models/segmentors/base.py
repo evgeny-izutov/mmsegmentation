@@ -26,7 +26,7 @@ class BaseSegmentor(nn.Module):
     def __init__(self):
         super(BaseSegmentor, self).__init__()
 
-        self.fp16_enabled = False
+        self.fp16_enabled = True
 
     @property
     def with_neck(self):

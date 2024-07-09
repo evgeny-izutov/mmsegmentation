@@ -63,7 +63,6 @@ def single_gpu_test(model,
     Returns:
         list: The prediction results.
     """
-
     model.eval()
 
     results = []
